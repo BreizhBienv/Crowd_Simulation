@@ -3,7 +3,10 @@
 
 #include "SphAgent/SphAgentManager.h"
 
+#include "NavigationSystem.h"
+#include "Detour/DetourNavMesh.h"
 #include "Kismet/GameplayStatics.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "SphAgent/SphAgent.h"
 
 // Sets default values
@@ -24,6 +27,9 @@ void ASphAgentManager::BeginPlay()
 	Agents = reinterpret_cast<TArray<ASphAgent*>&>(actors);
 	
 	RegisterAgentsInHashGrid();
+	
+	ExtractWallSegments(GetNavMesh(GetWorld()), WallSegments);
+	DebugObstacles();
 }
 
 // Called every frame
@@ -31,6 +37,74 @@ void ASphAgentManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	DebugHashGrid();
+}
+
+ARecastNavMesh* ASphAgentManager::GetNavMesh(const UWorld* World) const
+{
+	if (!World)
+		return nullptr;
+	
+	UNavigationSystemV1* navSys = 
+		FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	
+	if (!navSys)
+		return nullptr;
+	
+	return Cast<ARecastNavMesh>(navSys->GetDefaultNavDataInstance());
+}
+
+void ASphAgentManager::ExtractWallSegments(ARecastNavMesh* NavMesh, TArray<FWallSegment>& OutSegments)
+{
+	if (!NavMesh) 
+		return;
+	
+	const dtNavMesh* DetourMesh = NavMesh->GetRecastMesh();
+	if (!DetourMesh) 
+		return;
+	
+	for (int tileIndex = 0; tileIndex < DetourMesh->getMaxTiles(); ++tileIndex)
+	{
+		const dtMeshTile* Tile = DetourMesh->getTile(tileIndex);
+		if (!Tile || !Tile->header)
+			continue;
+	
+		for (int polyIndex = 0; polyIndex < Tile->header->polyCount; ++polyIndex)
+		{
+			const dtPoly* Poly = &Tile->polys[polyIndex];
+	
+			// Only walkable polygons
+			if (Poly->getType() != DT_POLYTYPE_GROUND)
+				continue;
+	
+			for (int i = 0; i < Poly->vertCount; ++i)
+			{
+				// Check if edge is boundary (no neighbour)
+				if (Poly->neis[i] != 0)
+					continue;
+	
+				int v0 = Poly->verts[i];
+				int v1 = Poly->verts[(i + 1) % Poly->vertCount];
+	
+				const double* p0 = &Tile->verts[v0 * 3];
+				const double* p1 = &Tile->verts[v1 * 3];
+				
+				FVector WorldV0 = FVector(-p0[0], -p0[2], p0[1]);
+				FVector WorldV1 = FVector(-p1[0], -p1[2], p1[1]);
+	
+				// Convert to 2D (XZ → XY plane)
+				FVector2D V0(WorldV0.X, WorldV0.Y);
+				FVector2D V1(WorldV1.X, WorldV1.Y);
+	
+				FWallSegment Seg;
+				Seg.Center = (V0 + V1) * 0.5f;
+				Seg.Length = (V1 - V0).Length();
+				Seg.point0 = V0;
+				Seg.point1 = V1;
+	
+				OutSegments.Add(Seg);
+			}
+		}
+	}
 }
 
 void ASphAgentManager::RegisterAgentsInHashGrid()
@@ -61,9 +135,16 @@ void ASphAgentManager::RegisterAgentsInHashGrid()
 
 void ASphAgentManager::UpdateAgents()
 {
+	FindAgentsNeighbours();
+	ComputeRequiredComponents();
+	ComputeForces();
+}
+
+void ASphAgentManager::FindAgentsNeighbours()
+{
 	for (ASphAgent* agent : Agents)
 	{
-		TArray<FSphAgentNeighboursData> neighbours;
+		TArray<FSphAgentNeighbourData> neighbours;
 		
 		FVector location = agent->GetActorLocation();
 		FIntVector2 gridCell = FIntVector2(
@@ -87,18 +168,28 @@ void ASphAgentManager::UpdateAgents()
 					{
 						if (agent == neighbourAgent)
 							continue;
-						
-						float dist = FVector::Distance(location, neighbourAgent->GetActorLocation());
-						if (dist > agent->InfluenceDistance())
-							continue;
 
-						neighbours.Add({neighbourAgent, dist});
+						neighbours.Add({neighbourAgent});
 					}
 				}
 							
 			}
 		}
+		
+		agent->SetNeighboursData(neighbours);
 	}
+}
+
+void ASphAgentManager::ComputeRequiredComponents()
+{
+	for (ASphAgent* agent : Agents)
+		agent->ComputeRequiredComponents();
+}
+
+void ASphAgentManager::ComputeForces()
+{
+	for (ASphAgent* agent : Agents)
+		agent->ComputeSphForces();
 }
 
 FVector ASphAgentManager::FromCellToWorldCoord(FIntVector2 CellId) const
@@ -114,5 +205,17 @@ void ASphAgentManager::DebugHashGrid()
 		FVector cellExtent = FVector(CellSize.X, CellSize.Y, 0) / 2.f - FVector(0.5f, 0.5f, 0);
 		
 		DrawDebugBox(GetWorld(), cellLocation, cellExtent, FColor::Green);
+	}
+}
+
+void ASphAgentManager::DebugObstacles()
+{
+	for (const FWallSegment& segment : WallSegments)
+	{
+		DrawDebugLine(
+			GetWorld(),
+			FVector(segment.point0, 20.f),
+			FVector(segment.point1, 20.f),
+			FColor::Red,true,-1,0,2.f);
 	}
 }

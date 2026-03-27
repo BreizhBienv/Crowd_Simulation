@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "SphAgentManager.generated.h"
 
+class ARecastNavMesh;
 class ASphAgent;
 
 USTRUCT(Blueprintable)
@@ -20,6 +21,24 @@ struct FHashGridData
 	TArray<ASphAgent*> Agents;
 };
 
+USTRUCT()
+struct FWallSegment
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere)
+    FVector2D Center;   // r_k^p
+	
+	UPROPERTY(VisibleAnywhere)
+    float Length;       // a(P_k)
+	
+	UPROPERTY(VisibleAnywhere)
+	FVector2D point0;
+	
+	UPROPERTY(VisibleAnywhere)
+	FVector2D point1;
+};
+
 UCLASS()
 class CROWDMOVEMENT_JB_GB_API ASphAgentManager : public AActor
 {
@@ -27,6 +46,9 @@ class CROWDMOVEMENT_JB_GB_API ASphAgentManager : public AActor
 	
 	UPROPERTY(VisibleAnywhere)
 	TArray<ASphAgent*> Agents;
+	
+	UPROPERTY(VisibleAnywhere)
+	TArray<FWallSegment> WallSegments;
 	
 	UPROPERTY(VisibleAnywhere, Category="Hash Grid")
 	TMap<uint32, FHashGridData> HashGrid;
@@ -50,9 +72,17 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
+	ARecastNavMesh* GetNavMesh(const UWorld* World) const;
+	void ExtractWallSegments(ARecastNavMesh* NavMesh, TArray<FWallSegment>& OutSegments);
+	
+	
 	void RegisterAgentsInHashGrid();
 	void UpdateAgents();
+	void FindAgentsNeighbours();
+	void ComputeRequiredComponents();
+	void ComputeForces();
 	FVector FromCellToWorldCoord(FIntVector2 CellId) const;
 	
 	void DebugHashGrid();
+	void DebugObstacles();
 };
