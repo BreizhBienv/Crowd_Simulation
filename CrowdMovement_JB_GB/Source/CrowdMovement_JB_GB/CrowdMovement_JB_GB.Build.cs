@@ -8,7 +8,36 @@ public class CrowdMovement_JB_GB : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] { 
+			//Base
+			"Core",
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"EnhancedInput",
+
+			//Mass AI
+			"MassEntity",
+			"MassCommon",
+			"MassSpawner",
+            "MassAIBehavior",
+
+		
+			//MassGameplay
+			"MassGameplayDebug",
+			"MassActors",
+			"MassMovement",
+			"MassNavigation",
+			"MassSignals",
+			"MassSmartObjects",
+			"NavigationSystem",
+
+			// MassCrowd
+			"MassCrowd",
+			"ZoneGraph",
+			"ZoneGraphAnnotations",
+
+                            });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

@@ -9,7 +9,9 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"AdditionalDependencies": [
-				"Engine"
+				"Engine",
+				"MassEntity",
+				"CoreUObject"
 			]
 		}
 	],
@@ -39,6 +41,14 @@
 		},
 		{
 			"Name": "GameplayStateTree",
+			"Enabled": true
+		},
+		{
+			"Name": "ZoneGraph",
+			"Enabled": true
+		},
+		{
+			"Name": "ZoneGraphAnnotations",
 			"Enabled": true
 		}
 	]
