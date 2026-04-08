@@ -27,7 +27,7 @@ void UCrowdObservationProcessor::ConfigureQueries(const TSharedRef<FMassEntityMa
 
 void UCrowdObservationProcessor::Execute(FMassEntityManager & Manager, FMassExecutionContext & Contexte)
 {
-	EntityQuery.ForEachEntityChunk(Manager, Contexte,
+	EntityQuery.ForEachEntityChunk(Contexte,
 		[](FMassExecutionContext& Context)
 		{
 			const float DeltaTime = Context.GetDeltaTimeSeconds();

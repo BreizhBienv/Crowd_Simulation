@@ -17,6 +17,7 @@ UCrowdInitObserver::UCrowdInitObserver()
 
 void UCrowdInitObserver::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
 {
+
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FCrowdBoidsFragment>(EMassFragmentAccess::ReadWrite);
@@ -26,7 +27,7 @@ void UCrowdInitObserver::ConfigureQueries(const TSharedRef<FMassEntityManager>& 
 
 void UCrowdInitObserver::Execute(FMassEntityManager & Manager, FMassExecutionContext & Contexte)
 {
-	EntityQuery.ForEachEntityChunk(Manager, Contexte,
+	EntityQuery.ForEachEntityChunk(Contexte,
 		[](FMassExecutionContext& Context)
 		{
 			const int32 NumEntities = Context.GetNumEntities();

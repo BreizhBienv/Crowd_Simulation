@@ -116,7 +116,7 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdBoidsFragment : public FMassFragment
 };
 
 USTRUCT()
-struct CROWDMOVEMENT_JB_GB_API FSharedCrowdSettings : public FMassSharedFragment
+struct CROWDMOVEMENT_JB_GB_API FSharedCrowdSettings : public FMassConstSharedFragment
 {
 	GENERATED_BODY()
 
