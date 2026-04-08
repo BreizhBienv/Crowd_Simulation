@@ -27,7 +27,9 @@ static TAutoConsoleVariable<int32> CVarCrowdDebug(
 UCrowdDebugProcessor::UCrowdDebugProcessor()
 {
 	ExecutionOrder.ExecuteInGroup = UE::Mass::ProcessorGroupNames::Behavior;
-	ExecutionOrder.ExecuteAfter.Add(UE::Mass::ProcessorGroupNames::Behavior);
+
+	ExecutionOrder.ExecuteAfter.Add(TEXT("CrowdWalkingProcessor"));
+	ExecutionOrder.ExecuteAfter.Add(TEXT("CrowdObservationProcessor"));
 
 	bAutoRegisterWithProcessingPhases = true;
 #if !UE_BUILD_SHIPPING
@@ -54,7 +56,7 @@ void UCrowdDebugProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>
 void UCrowdDebugProcessor::Execute(FMassEntityManager & Manager, FMassExecutionContext & Context)
 {
 #if !UE_BUILD_SHIPPING
-	if (CVarCrowdDebug.GetValueOnGameThread() == 0)
+	if (CVarCrowdDebug.GetValueOnAnyThread() == 0)
 	{
 		return;
 	}
@@ -64,89 +66,90 @@ void UCrowdDebugProcessor::Execute(FMassEntityManager & Manager, FMassExecutionC
 	{
 		return;
 	}
-	EntityQuery.ForEachEntityChunk(Context,
-		[](FMassExecutionContext& Ctx)
-		{
-			UWorld* World = Ctx.GetWorld();
-			const int32 NumEntities = Ctx.GetNumEntities();
-			const TConstArrayView<FTransformFragment>    Transforms = Ctx.GetFragmentView<FTransformFragment>();
-			const TConstArrayView<FCrowdPOIFragment>     POIs = Ctx.GetFragmentView<FCrowdPOIFragment>();
-			const TConstArrayView<FCrowdPhaseFragments>  Phases = Ctx.GetFragmentView<FCrowdPhaseFragments>();
-			const TConstArrayView<FCrowdFragments>       Personalities = Ctx.GetFragmentView<FCrowdFragments>();
 
-			for (int32 i = 0; i < NumEntities; ++i)
-			{
-				const FVector AgentLocation = Transforms[i].GetTransform().GetLocation()
-					+ FVector(0.f, 0.f, 90.f); 
+	struct FDebugDrawData
+	{
+		FVector AgentLocation;
+		FVector TargetLocation;
+		FColor  Color;
+		FString Label;
+	};
 
-				const FCrowdPOIFragment& POI = POIs[i];
-				const FCrowdPhaseFragments& Phase = Phases[i];
+	TArray<FDebugDrawData> DrawList;
 
-				FColor LineColor = FColor::White;
-				FString PhaseName = TEXT("?");
 
-				switch (Phase.CurrentPhase)
-				{
-				case ECrowdPhase::Passive_Walk:
-					LineColor = FColor::Green;
-					PhaseName = TEXT("Walking");
-					break;
-				case ECrowdPhase::Passive_Observation:
-					LineColor = FColor::Cyan;
-					PhaseName = TEXT("Observing");
-					break;
-				case ECrowdPhase::Passive_Discution:
-					LineColor = FColor::Yellow;
-					PhaseName = TEXT("Talking");
-					break;
-				case ECrowdPhase::Active_Fleeing:
-					LineColor = FColor::Orange;
-					PhaseName = TEXT("Fleeing");
-					break;
-				case ECrowdPhase::Active_Fighting:
-					LineColor = FColor::Red;
-					PhaseName = TEXT("Fighting");
-					break;
-				}
+    EntityQuery.ForEachEntityChunk(Context,
+        [&DrawList](FMassExecutionContext& Ctx)
+        {
+            const int32 NumEntities = Ctx.GetNumEntities();
+            const TConstArrayView<FTransformFragment>   Transforms = Ctx.GetFragmentView<FTransformFragment>();
+            const TConstArrayView<FCrowdPOIFragment>    POIs = Ctx.GetFragmentView<FCrowdPOIFragment>();
+            const TConstArrayView<FCrowdPhaseFragments> Phases = Ctx.GetFragmentView<FCrowdPhaseFragments>();
 
-				if (!POI.TargetPOILocation.IsNearlyZero())
-				{
-					DrawDebugLine(
-						World,
-						AgentLocation,
-						POI.TargetPOILocation + FVector(0.f, 0.f, 10.f),
-						LineColor,
-						false, 
-						-1.f,  
-						0,
-						2.f   
-					);
-					DrawDebugSphere(
-						World,
-						POI.TargetPOILocation + FVector(0.f, 0.f, 10.f),
-						20.f,
-						6,
-						LineColor,
-						false,
-						-1.f
-					);
-				}
-				const FString DebugText = FString::Printf(
-					TEXT("%s\n%.1fs"),
-					*PhaseName,
-					Phase.PhaseTimer
-				);
+            for (int32 i = 0; i < NumEntities; ++i)
+            {
+                const FVector AgentLocation = Transforms[i].GetTransform().GetLocation() + FVector(0.f, 0.f, 90.f);
+                const FCrowdPOIFragment& POI = POIs[i];
+                const FCrowdPhaseFragments& Phase = Phases[i];
 
-				DrawDebugString(
-					World,
-					AgentLocation + FVector(0.f, 0.f, 30.f),
-					DebugText,
-					nullptr,
-					LineColor,
-					0.f,   
-					true   
-				);
-			}
-		});
+                FColor  LineColor = FColor::White;
+                FString PhaseName = TEXT("?");
+
+                switch (Phase.CurrentPhase)
+                {
+                case ECrowdPhase::Passive_Walk:
+                    LineColor = FColor::Green;  PhaseName = TEXT("Walking");   break;
+                case ECrowdPhase::Passive_Observation:
+                    LineColor = FColor::Cyan;   PhaseName = TEXT("Observing"); break;
+                case ECrowdPhase::Passive_Discution:
+                    LineColor = FColor::Yellow; PhaseName = TEXT("Talking");   break;
+                case ECrowdPhase::Active_Fleeing:
+                    LineColor = FColor::Orange; PhaseName = TEXT("Fleeing");   break;
+                case ECrowdPhase::Active_Fighting:
+                    LineColor = FColor::Red;    PhaseName = TEXT("Fighting");  break;
+                }
+
+                FDebugDrawData Data;
+                Data.AgentLocation = AgentLocation;
+                Data.TargetLocation = POI.TargetPOILocation;
+                Data.Color = LineColor;
+                Data.Label = FString::Printf(TEXT("%s\n%.1fs"), *PhaseName, Phase.PhaseTimer);
+
+                DrawList.Add(Data);
+            }
+        });
+
+    // Rendu sur le Game Thread
+    AsyncTask(ENamedThreads::GameThread, [World, DrawList = MoveTemp(DrawList)]()
+        {
+            for (const FDebugDrawData& Data : DrawList)
+            {
+                if (!Data.TargetLocation.IsNearlyZero())
+                {
+                    DrawDebugLine(
+                        World,
+                        Data.AgentLocation,
+                        Data.TargetLocation + FVector(0.f, 0.f, 10.f),
+                        Data.Color,
+                        false, -1.f, 0, 2.f
+                    );
+                    DrawDebugSphere(
+                        World,
+                        Data.TargetLocation + FVector(0.f, 0.f, 10.f),
+                        20.f, 6, Data.Color,
+                        false, -1.f
+                    );
+                }
+
+                DrawDebugString(
+                    World,
+                    Data.AgentLocation + FVector(0.f, 0.f, 30.f),
+                    Data.Label,
+                    nullptr,
+                    Data.Color,
+                    0.f, true
+                );
+            }
+        });
 #endif
 }

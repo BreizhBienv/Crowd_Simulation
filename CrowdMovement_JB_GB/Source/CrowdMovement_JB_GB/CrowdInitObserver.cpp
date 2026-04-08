@@ -5,12 +5,15 @@
 #include "CrowdFragments.h"
 #include "crowdTags.h"
 #include "MassExecutionContext.h"
+#include "MassCommonTypes.h"
 #include "MassCommonFragments.h"
 
 UCrowdInitObserver::UCrowdInitObserver()
 {
 	ObservedType = FCrowdPhaseFragments::StaticStruct();
 	Operation = EMassObservedOperation::Add;
+
+	ExecutionOrder.ExecuteInGroup = UE::Mass::ProcessorGroupNames::Behavior;
 
 	bAutoRegisterWithProcessingPhases = true;
 }
@@ -22,6 +25,8 @@ void UCrowdInitObserver::ConfigureQueries(const TSharedRef<FMassEntityManager>& 
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FCrowdBoidsFragment>(EMassFragmentAccess::ReadWrite);
+
+	
 
 	EntityQuery.RegisterWithProcessor(*this);
 }
