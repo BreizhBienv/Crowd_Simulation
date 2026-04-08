@@ -21,6 +21,8 @@ UCrowdWalkingProcessor::UCrowdWalkingProcessor()
 
 void UCrowdWalkingProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
 {
+	EntityQuery.Initialize(EntityManager);
+
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPhaseFragments>(EMassFragmentAccess::ReadWrite);
 

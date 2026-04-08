@@ -16,8 +16,11 @@ UCrowdObservationProcessor::UCrowdObservationProcessor()
 
 void UCrowdObservationProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
 {
+    EntityQuery.Initialize(EntityManager);
+
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
+    EntityQuery.AddRequirement<FCrowdPhaseFragments>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FCrowdBoidsFragment>(EMassFragmentAccess::ReadWrite);
 
 	EntityQuery.AddTagRequirement<FTagPassiveObserving>(EMassFragmentPresence::All);

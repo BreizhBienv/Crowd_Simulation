@@ -14,7 +14,7 @@ void UCrowdAgentTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildConte
 	BuildContext.AddFragment<FCrowdPOIFragment>();
 	BuildContext.AddFragment<FCrowdBoidsFragment>();
 
-	BuildContext.AddSharedFragment(FSharedStruct::Make(SharedSettings));
+	BuildContext.AddConstSharedFragment(FSharedStruct::Make(SharedSettings));
 
 	BuildContext.AddTag<FTagPassiveWalking>();
 

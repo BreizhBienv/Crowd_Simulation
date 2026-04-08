@@ -17,6 +17,7 @@ UCrowdInitObserver::UCrowdInitObserver()
 
 void UCrowdInitObserver::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
 {
+	EntityQuery.Initialize(EntityManager);
 
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
