@@ -113,6 +113,8 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdBoidsFragment : public FMassFragment
 
 	UPROPERTY()
 	float SocialUrge = 0.f;
+
+
 };
 
 USTRUCT()

@@ -10,6 +10,7 @@
 #include "MassExecutionContext.h"
 #include "MassEntityTypes.h"   
 #include "DrawDebugHelpers.h"
+#include <String>
 
 // to activate debug mode tape  
 // mass.crowd.debug 1  activer
@@ -48,6 +49,7 @@ void UCrowdDebugProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPhaseFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
+    EntityQuery.AddRequirement<FCrowdBoidsFragment>(EMassFragmentAccess::ReadOnly);
 
 	EntityQuery.RegisterWithProcessor(*this);
 #endif
@@ -84,16 +86,21 @@ void UCrowdDebugProcessor::Execute(FMassEntityManager & Manager, FMassExecutionC
             const int32 NumEntities = Ctx.GetNumEntities();
             const TConstArrayView<FTransformFragment>   Transforms = Ctx.GetFragmentView<FTransformFragment>();
             const TConstArrayView<FCrowdPOIFragment>    POIs = Ctx.GetFragmentView<FCrowdPOIFragment>();
+			const TConstArrayView<FCrowdFragments>       Personalities = Ctx.GetFragmentView<FCrowdFragments>();
             const TConstArrayView<FCrowdPhaseFragments> Phases = Ctx.GetFragmentView<FCrowdPhaseFragments>();
+            const auto Boids = Ctx.GetFragmentView<FCrowdBoidsFragment>();
 
             for (int32 i = 0; i < NumEntities; ++i)
             {
                 const FVector AgentLocation = Transforms[i].GetTransform().GetLocation() + FVector(0.f, 0.f, 90.f);
                 const FCrowdPOIFragment& POI = POIs[i];
                 const FCrowdPhaseFragments& Phase = Phases[i];
+				const FCrowdBoidsFragment& Boid = Boids[i];
 
                 FColor  LineColor = FColor::White;
                 FString PhaseName = TEXT("?");
+				FString PersonalityName = TEXT("?");
+				FString BoidGroupe = TEXT("?");
 
                 switch (Phase.CurrentPhase)
                 {
@@ -109,11 +116,25 @@ void UCrowdDebugProcessor::Execute(FMassEntityManager & Manager, FMassExecutionC
                     LineColor = FColor::Red;    PhaseName = TEXT("Fighting");  break;
                 }
 
+                switch (Personalities[i].Personality)
+                {
+                    case EPersonalityType::Calm:
+                         PersonalityName = TEXT("Calm"); break;
+					case EPersonalityType::Social:
+                        PersonalityName = TEXT("Social"); break;
+					case EPersonalityType::Leader:
+                        PersonalityName = TEXT("Leader"); break;
+					case EPersonalityType::Nervous:
+                        PersonalityName = TEXT("Nervous"); break;
+                default:
+                    break;
+                }
+
                 FDebugDrawData Data;
                 Data.AgentLocation = AgentLocation;
                 Data.TargetLocation = POI.TargetPOILocation;
                 Data.Color = LineColor;
-                Data.Label = FString::Printf(TEXT("%s\n%.1fs"), *PhaseName, Phase.PhaseTimer);
+                Data.Label = FString::Printf(TEXT("%s\n%.1fs\n%s"), *PhaseName, Phase.PhaseTimer, *PersonalityName);
 
                 DrawList.Add(Data);
             }
