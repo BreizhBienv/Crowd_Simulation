@@ -54,10 +54,10 @@ public:
 
 private:	
 	void RegisterAgentsInHashGrid();
-	void UpdateAgents();
+	void UpdateAgents(float DeltaTime);
 	void FindAgentsNeighbours();
 	void ComputeRequiredComponents();
-	void ComputeForces();
+	void ComputeForces(float DeltaTime);
 	FVector FromCellToWorldCoord(FIntVector2 CellId) const;
 	
 	void DebugHashGrid();

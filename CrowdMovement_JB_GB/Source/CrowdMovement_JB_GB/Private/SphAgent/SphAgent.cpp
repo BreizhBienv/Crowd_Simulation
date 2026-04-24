@@ -1,7 +1,11 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SphAgent/SphAgent.h"
+
+#include "GameFramework/CharacterMovementComponent.h"
 #include "SphAgent/SphWallLibrary.h"
+
+#define CONVERT_M_TO_CM 100.f
 
 // Sets default values
 ASphAgent::ASphAgent()
@@ -37,9 +41,29 @@ void ASphAgent::SetNeighboursData(const TArray<FSphAgentNeighbourData>& data)
 	neighbours = data;
 }
 
-void ASphAgent::ComputeSphForces(const TArray<FWallSegment>& obstacles)
-{	
-	FVector2D fPressureFromObstacles = ComputePressureFromObstacles();
+void ASphAgent::ComputeRequiredComponents(const TArray<FWallSegment>& obstacles)
+{
+	const float densityFromNeighbours = ComputeDensityFromNeighbours();
+	float densityFromObstacles = 0;
+	
+	wallSegments.Empty();
+	for (const FWallSegment& segment : obstacles)
+	{
+		FWallSegment newData;
+		if (ComputeSegmentData(segment, newData))
+		{
+			wallSegments.Add(newData);
+			densityFromObstacles += ComputeDensityFromSegment(newData);
+		}
+	}
+	
+	density = densityFromNeighbours + densityFromObstacles;
+	ComputePressure();
+}
+
+void ASphAgent::ComputeSphForces(float DeltaTime)
+{
+	const FVector2D fPressureFromObstacles = ComputePressureFromObstacles();
 	FVector2D fPressureFromNeighbours = FVector2D::ZeroVector;
 	FVector2D fViscosity = FVector2D::ZeroVector;
 	for (FSphAgentNeighbourData data : neighbours)
@@ -48,126 +72,136 @@ void ASphAgent::ComputeSphForces(const TArray<FWallSegment>& obstacles)
 		fViscosity += ComputeViscosityFromNeighbours(data);
 	}
 	
-	FVector2D fPressure = -fPressureFromObstacles + fPressureFromObstacles;
-	
-	ComputeAcceleration(-fPressure, muViscosity * fViscosity);
-}
-
-void ASphAgent::ComputeRequiredComponents(const TArray<FWallSegment>& obstacles)
-{
-	float densityFromNeighbours = ComputeDensityFromNeighbours();
-	float densityFromObstacles = ComputeDensityFromObstacles(obstacles, wallSegments);
-	sphDensity = densityFromNeighbours + densityFromObstacles;
-	ComputePressure();
+	ComputeAcceleration(-fPressureFromNeighbours + fPressureFromObstacles, muViscosity * fViscosity, DeltaTime);
 }
 
 FVector2D ASphAgent::GetActorLocation2D(const AActor* actor)
 {
-	return FVector2D(actor->GetActorLocation().X, actor->GetActorLocation().Y);
+	return FVector2D(actor->GetActorLocation().X / CONVERT_M_TO_CM, actor->GetActorLocation().Y / CONVERT_M_TO_CM);
 }
 
 float ASphAgent::ComputeDensityFromNeighbours() const
 {
-	float density = 0;
-
-	FVector2D location = GetActorLocation2D(this);
+	float result = 0;
+	
+	const FVector2D location = GetActorLocation2D(this);
 	for (FSphAgentNeighbourData data : neighbours)
 	{
 		FVector2D dirVector = location - GetActorLocation2D(data.neighbour);
-		density += data.neighbour->mass * Poly6Kernel(dirVector, influenceDistance);
+		result += data.neighbour->mass * Poly6Kernel(dirVector, influenceDistance);
 	}
 	
-	return density;
+	return result;
 }
 
-float ASphAgent::ComputeDensityFromObstacles(const TArray<FWallSegment>& obstacles, TArray<FWallSegment>& registeredObstacles) const
+bool ASphAgent::ComputeSegmentData(const FWallSegment& segment, FWallSegment& outData) const
+{	
+	const FVector2D location = GetActorLocation2D(this);
+	
+	FVector2D closestPoint = FMath::ClosestPointOnSegment2D(location, segment.point0, segment.point1);
+	FVector2D AgentToWall = closestPoint - location;
+	const float distToAgent = AgentToWall.Size();
+	if (distToAgent > influenceDistance)
+		return false;
+	
+	AgentToWall.Normalize();
+	const FVector2D densityCenterPoint = location + (AgentToWall * (distToAgent + (influenceDistance - distToAgent) / 2.f));
+	const float area = SphWallLibrary::SegmentCircleArea(segment.point0 - location, segment.point1 - location, influenceDistance, GetWorld());
+	
+	// DrawDebugCircle(GetWorld(), GetActorLocation(), influenceDistance * CONVERT_M_TO_CM, 16, FColor::Blue, false, -1, 0, 0, FVector::ForwardVector, FVector::RightVector);
+	// DrawDebugSphere(GetWorld(), FVector(densityCenterPoint.X * CONVERT_M_TO_CM, densityCenterPoint.Y * CONVERT_M_TO_CM, 0.f), 50.f, 16, FColor::Blue);
+	// DrawDebugSphere(GetWorld(), FVector(segment.point0.X * CONVERT_M_TO_CM, segment.point0.Y * CONVERT_M_TO_CM, 0.f), 5.f, 16, FColor::Red);
+	// DrawDebugSphere(GetWorld(), FVector(segment.point1.X * CONVERT_M_TO_CM, segment.point1.Y * CONVERT_M_TO_CM, 0.f), 5.f, 16, FColor::Red);
+	
+	FWallSegment registeredWallSegment;
+	
+	registeredWallSegment.point0 = segment.point0;
+	registeredWallSegment.point1 = segment.point1;
+	registeredWallSegment.Center = densityCenterPoint;
+	registeredWallSegment.Area = area;
+	
+	outData = registeredWallSegment;
+	return true;
+}
+
+float ASphAgent::ComputeDensityFromSegment(const FWallSegment& segment) const
 {
-	float density = 0.f;
-	TArray<FWallSegment> outObstacles;
-	
-	FVector2D location(GetActorLocation().X, GetActorLocation().Y);
-	for (const FWallSegment& wall : obstacles)
-	{
-		FVector2D closestPoint = FMath::ClosestPointOnSegment2D(location, wall.point0, wall.point1);
-		FVector2D AgentToWall = closestPoint - location;
-		float distToAgent = AgentToWall.Size();
-		if (distToAgent > influenceDistance)
-			continue;
-		
-		AgentToWall.Normalize();
-		FVector2D densityCenterPoint = AgentToWall * (distToAgent + (influenceDistance - distToAgent) / 2.f);
-		FVector2D dirVector = location - densityCenterPoint;
-		float wallArea = SphWallLibrary::SegmentCircleArea(wall.point0 - location, wall.point1 - location, influenceDistance);
-		density += comfortDensity * wallArea * Poly6Kernel(dirVector, influenceDistance);
-		
-		outObstacles.Add({densityCenterPoint, wallArea, wall.point0, wall.point1});
-	}
-	
-	registeredObstacles = outObstacles;
-	return density;
+	const FVector2D location = GetActorLocation2D(this);
+	const FVector2D dirVector = location - segment.Center;
+	return comfortDensity * segment.Area * obstacleAreaCoef * Poly6Kernel(dirVector, influenceDistance);
 }
 
 void ASphAgent::ComputePressure()
 {
-	float substraction = FMath::Max(0, sphDensity - comfortDensity);
-	densityPressure = pressureRepulsionConstant * substraction;
+	const float substraction = FMath::Max(0, density - comfortDensity);
+	pressure = k * substraction;
 }
 
 FVector2D ASphAgent::ComputePressureFromNeighbours(const FSphAgentNeighbourData& neighbour) const
-{	
-	FVector2D dirVector = GetActorLocation2D(this) - GetActorLocation2D(neighbour.neighbour);
-	float factor = (densityPressure + neighbour.neighbour->densityPressure) / (2 * neighbour.neighbour->sphDensity);
+{
+	const FVector2D dirVector = GetActorLocation2D(this) - GetActorLocation2D(neighbour.neighbour);
+	const float factor = neighbour.neighbour->density ? (pressure + neighbour.neighbour->pressure) / (2 * neighbour.neighbour->density) : 0;
 	return neighbour.neighbour->mass * factor * SpikyKernel(dirVector, influenceDistance);
 }
 
 FVector2D ASphAgent::ComputePressureFromObstacles() const
 {
-	FVector2D pressure = FVector2D::ZeroVector;
-	
-	FVector2D location(GetActorLocation().X, GetActorLocation().Y);
+	FVector2D result = FVector2D::ZeroVector;
+
+	const FVector2D location = GetActorLocation2D(this);
 	for (const FWallSegment& wall : wallSegments)
 	{
-		FVector2D dirVector = location - wall.Center;
-		pressure += -densityPressure * wall.Area * SpikyKernel(dirVector, influenceDistance);
+		const FVector2D dirVector = location - wall.Center;
+		result += -pressure * wall.Area * obstacleAreaCoef * SpikyKernel(dirVector, influenceDistance);
 	}
 	
-	return pressure;
+	return result;
 }
 
 FVector2D ASphAgent::ComputeViscosityFromNeighbours(const FSphAgentNeighbourData& neighbour) const
 {
-	FVector2D computeForce;
+	const FVector vel = GetVelocity() / CONVERT_M_TO_CM;
+	const FVector otherVel = neighbour.neighbour->GetVelocity() / CONVERT_M_TO_CM;
+	const FVector2D dirVector = GetActorLocation2D(this) - GetActorLocation2D(neighbour.neighbour);
 	
-	FVector2D location = GetActorLocation2D(this);
-	for (FSphAgentNeighbourData data : neighbours)
-	{
-		FVector2D dirVector = location - GetActorLocation2D(data.neighbour);
-		FVector factor = (data.neighbour->GetVelocity() - GetVelocity()) / data.neighbour->sphDensity;
-		FVector2D vel2D(factor.X, factor.Y);
-		computeForce += data.neighbour->mass * vel2D * MullerKernel(dirVector, influenceDistance);
-	}
+	const FVector factor = neighbour.neighbour->density ? (otherVel - vel) / neighbour.neighbour->density : FVector::ZeroVector;
+	const FVector2D vel2D(factor.X, factor.Y);
 	
-	return muViscosity * computeForce;
+	return neighbour.neighbour->mass * vel2D * MullerKernel(dirVector, influenceDistance);
 }
 
-void ASphAgent::ComputeAcceleration(const FVector2D& fPressure, const FVector2D& fViscosity)
+void ASphAgent::ComputeAcceleration(const FVector2D& fPressure, const FVector2D& fViscosity, float DeltaTime)
 {
-	FVector fPressure3D(fPressure.X, fPressure.Y, 0);
-	FVector fViscosity3D(fViscosity.X, fViscosity.Y, 0);
-	acceleration += (fPressure3D + fViscosity3D) / sphDensity;
+	const FVector fPressure3D(fPressure.X, fPressure.Y, 0);
+	const FVector fViscosity3D(fViscosity.X, fViscosity.Y, 0);
+	acceleration = density > 0 ? ((fPressure3D + fViscosity3D) / density) * CONVERT_M_TO_CM : FVector::ZeroVector;
+	
+	float AccelerationMagnitude = acceleration.Size();
+	FVector AccelerationDirection = acceleration.GetSafeNormal();
+	GetCharacterMovement()->MaxAcceleration = AccelerationMagnitude;
+	AddMovementInput(AccelerationDirection, 1.0f);
+	
+	if (debug && GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, (acceleration * DeltaTime).ToString());	
+	
+	const FVector normalizedAcceleration = acceleration.GetSafeNormal();
+	const FVector normalizedVelocity = GetCharacterMovement()->Velocity.GetSafeNormal();
+	
+	DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + normalizedAcceleration * 100.f, FColor::Yellow);
+	DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + normalizedVelocity * 100.f, FColor::Magenta);
 }
 
 float ASphAgent::Poly6Kernel(const FVector2D& r, float h)
 {
-	return FMath::Abs(r.Length()) < h ? 
-		4.f / (UE_PI * FMath::Pow(h, 8)) * FMath::Pow(h * h - r.Length() * r.Length(), 3) : 
+	return r.Length() < h ? 
+		4.f / (UE_PI * FMath::Pow(h, 8)) * FMath::Pow(h * h - r.SquaredLength(), 3) : 
 		0;
 }
 
 FVector2D ASphAgent::SpikyKernel(const FVector2D& r, float h)
 {
-	return FMath::Abs(r.Length()) < h ? 
-		-(30.f / UE_PI * FMath::Pow(h, 5)) * (r / r.Length()) * ((h - r.Length()) * (h - r.Length())) : 
+	return r.Length() < h ? 
+		-(30.f / (UE_PI * FMath::Pow(h, 5))) * (r / r.Length()) * ((h - r.Length()) * (h - r.Length())) : 
 		FVector2D::ZeroVector;
 }
 
@@ -176,5 +210,4 @@ float ASphAgent::MullerKernel(const FVector2D& r, float h)
 	return r.Length() < h ? 
 		360.f / (29.f * UE_PI * FMath::Pow(h, 5)) * (h - r.Length()) : 
 		0;
-} 
-
+}

@@ -7,6 +7,8 @@
 #include "NavMesh/RecastNavMesh.h"
 #include "Detour/DetourNavMesh.h"
 
+#define CONVERT_M_TO_CM 100.f
+
 void SphWallLibrary::ExtractWallSegments(ARecastNavMesh* NavMesh, TArray<FWallSegment>& OutSegments)
 {
 	if (!NavMesh) 
@@ -50,8 +52,8 @@ void SphWallLibrary::ExtractWallSegments(ARecastNavMesh* NavMesh, TArray<FWallSe
 				FVector2D V1(WorldV1.X, WorldV1.Y);
 	
 				FWallSegment Seg;
-				Seg.point0 = V0;
-				Seg.point1 = V1;
+				Seg.point0 = V0 / CONVERT_M_TO_CM;
+				Seg.point1 = V1 / CONVERT_M_TO_CM;
 	
 				OutSegments.Add(Seg);
 			}
@@ -77,30 +79,39 @@ ARecastNavMesh* SphWallLibrary::GetNavMesh(const UWorld* World)
 /// @param B In circle local space too
 /// @param R circle radius
 /// @return The area between the segment and the edge of the circle
-float SphWallLibrary::SegmentCircleArea(const FVector2D& A, const FVector2D& B, float R)
+float SphWallLibrary::SegmentCircleArea(const FVector2D& A, const FVector2D& B, float R, UWorld* World)
 {
 	float t0, t1;
 	const int hit = IntersectSegmentCircle(A, B, R, t0, t1);
-
+	
 	if (hit == 0)
 		return 0;
 
 	// Clamp to segment
 	t0 = FMath::Clamp(t0, 0.0f, 1.0f);
 	t1 = FMath::Clamp(t1, 0.0f, 1.0f);
-
+	
 	// Sort t
 	if (t0 > t1)
 		Swap(t0, t1);
-
+	
 	FVector2D d = B - A;
-	d.Normalize();
+	//d.Normalize();
 	
 	//Segment points projected on circle
 	const FVector2D I0 = A + d * t0;
 	const FVector2D I1 = A + d * t1;
-
-	return SectorArea(I0, I1, R) - TriangleArea(I0, I1);
+	
+	// DrawDebugCircle(World, FVector::Zero(), R * 100.f, 16, FColor::Blue, false, -1, 0, 0, FVector::ForwardVector, FVector::RightVector);
+	// DrawDebugSphere(World, FVector(A.X * 100.f, A.Y * 100.f, 10.f), 5.f, 16, FColor::Cyan);
+	// DrawDebugSphere(World, FVector(B.X * 100.f, B.Y * 100.f, 10.f), 5.f, 16, FColor::Green);
+	// DrawDebugLine(World, FVector(A.X * 100.f, A.Y * 100.f, 10.f), FVector(B.X * 100.f, B.Y * 100.f, 10.f), FColor::Green);
+	//
+	// DrawDebugSphere(World, FVector(I0.X * 100.f, I0.Y * 100.f, 10.f), 5.f, 16, FColor::Red);
+	// DrawDebugSphere(World, FVector(I1.X * 100.f, I1.Y * 100.f, 10.f), 5.f, 16, FColor::Magenta);
+	
+	float area = SectorArea(I0, I1, R) - TriangleArea(I0, I1);
+	return area;
 }
 
 int SphWallLibrary::IntersectSegmentCircle(const FVector2D& A, const FVector2D& B, float R, float& t0, float& t1)
@@ -136,7 +147,7 @@ float SphWallLibrary::TriangleArea(const FVector2D& A, const FVector2D& B)
 
 float SphWallLibrary::SectorArea(const FVector2D& A, const FVector2D& B, float R)
 {
-	float theta = AngleRad(A, B);
+	float theta = FMath::Abs(AngleRad(A, B));	
 	return 0.5f * (R * R) * theta;
 }
 

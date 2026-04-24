@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "SphWallLibrary.generated.h"
 
 class ARecastNavMesh;
 
@@ -11,16 +12,9 @@ struct FWallSegment
 {
 	GENERATED_BODY()
 	
-	UPROPERTY(VisibleAnywhere)
 	FVector2D Center;
-	
-	UPROPERTY(VisibleAnywhere)
 	float Area;
-	
-	UPROPERTY(VisibleAnywhere)
 	FVector2D point0;
-	
-	UPROPERTY(VisibleAnywhere)
 	FVector2D point1;
 };
 
@@ -29,7 +23,7 @@ class CROWDMOVEMENT_JB_GB_API SphWallLibrary
 public:
 	static ARecastNavMesh* GetNavMesh(const UWorld* World);
 	static void ExtractWallSegments(ARecastNavMesh* NavMesh, TArray<FWallSegment>& OutSegments);
-	static float SegmentCircleArea(const FVector2D& A, const FVector2D& B, float R);
+	static float SegmentCircleArea(const FVector2D& A, const FVector2D& B, float R, UWorld* World);
 	static int IntersectSegmentCircle(const FVector2D& A, const FVector2D& B, float R, float& t0, float& t1);
 	static float TriangleArea(const FVector2D& A, const FVector2D& B);
 	static float SectorArea(const FVector2D& A, const FVector2D& B, float R);

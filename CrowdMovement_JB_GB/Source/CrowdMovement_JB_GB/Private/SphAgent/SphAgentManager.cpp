@@ -7,6 +7,8 @@
 #include "SphAgent/SphAgent.h"
 #include "SphAgent/SphWallLibrary.h"
 
+#define CONVERT_M_TO_CM 100.f
+
 // Sets default values
 ASphAgentManager::ASphAgentManager()
 {
@@ -24,7 +26,6 @@ void ASphAgentManager::BeginPlay()
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASphAgent::StaticClass(), actors);
 	Agents = reinterpret_cast<TArray<ASphAgent*>&>(actors);
 	
-	RegisterAgentsInHashGrid();
 	
 	SphWallLibrary::ExtractWallSegments(SphWallLibrary::GetNavMesh(GetWorld()), WallSegments);
 	DebugObstacles();
@@ -34,6 +35,10 @@ void ASphAgentManager::BeginPlay()
 void ASphAgentManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	RegisterAgentsInHashGrid();
+	UpdateAgents(DeltaTime);
+	
 	DebugHashGrid();
 }
 
@@ -63,11 +68,11 @@ void ASphAgentManager::RegisterAgentsInHashGrid()
 	}
 }
 
-void ASphAgentManager::UpdateAgents()
+void ASphAgentManager::UpdateAgents(float DeltaTime)
 {
 	FindAgentsNeighbours();
 	ComputeRequiredComponents();
-	ComputeForces();
+	ComputeForces(DeltaTime);
 }
 
 void ASphAgentManager::FindAgentsNeighbours()
@@ -116,10 +121,10 @@ void ASphAgentManager::ComputeRequiredComponents()
 		agent->ComputeRequiredComponents(WallSegments);
 }
 
-void ASphAgentManager::ComputeForces()
+void ASphAgentManager::ComputeForces(float DeltaTime)
 {
 	for (ASphAgent* agent : Agents)
-		agent->ComputeSphForces(WallSegments);
+		agent->ComputeSphForces(DeltaTime);
 }
 
 FVector ASphAgentManager::FromCellToWorldCoord(FIntVector2 CellId) const
@@ -144,8 +149,8 @@ void ASphAgentManager::DebugObstacles()
 	{
 		DrawDebugLine(
 			GetWorld(),
-			FVector(segment.point0, 20.f),
-			FVector(segment.point1, 20.f),
+			FVector(segment.point0 * CONVERT_M_TO_CM, 20.f),
+			FVector(segment.point1 * CONVERT_M_TO_CM, 20.f),
 			FColor::Red,true,-1,0,2.f);
 	}
 }
