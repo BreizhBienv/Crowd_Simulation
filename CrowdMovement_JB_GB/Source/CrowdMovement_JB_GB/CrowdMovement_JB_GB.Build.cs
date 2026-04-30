@@ -8,6 +8,7 @@ public class CrowdMovement_JB_GB : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
+<<<<<<< HEAD
 		PublicDependencyModuleNames.AddRange(new string[] { 
 			//Base
 			"Core",
@@ -21,8 +22,7 @@ public class CrowdMovement_JB_GB : ModuleRules
 			"MassCommon",
 			"MassSpawner",
             "MassAIBehavior",
-
-		
+			
 			//MassGameplay
 			"MassGameplayDebug",
 			"MassActors",
@@ -36,10 +36,12 @@ public class CrowdMovement_JB_GB : ModuleRules
 			"MassCrowd",
 			"ZoneGraph",
 			"ZoneGraphAnnotations",
+			
+			//Navigation
+			"Navmesh", 
+		});
 
-                            });
-
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
