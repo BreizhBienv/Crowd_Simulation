@@ -8,7 +8,6 @@ public class CrowdMovement_JB_GB : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-<<<<<<< HEAD
 		PublicDependencyModuleNames.AddRange(new string[] { 
 			//Base
 			"Core",

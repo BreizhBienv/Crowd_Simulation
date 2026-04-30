@@ -87,114 +87,112 @@ void UCrowdBoidProcessor::Execute(FMassEntityManager & Manager, FMassExecutionCo
 			}
 		});
 
-		if(allAgents.IsEmpty()){ return;}
+	if(allAgents.IsEmpty()){ return;}
 
-		static int32 groupeID = 0;
-		for (int32 i = 0; i < allAgents.Num(); i++)
+	static int32 groupeID = 0;
+	for (int32 i = 0; i < allAgents.Num(); i++)
+	{
+		if (allAgents[i].GroupID != -1) continue;
+
+		for (int32 j = 0; j < allAgents.Num(); j++)
 		{
-			if (allAgents[i].GroupID != -1) continue;
+			if (allAgents[j].GroupID != -1) continue;
 
-			for (int32 j = 0; j < allAgents.Num(); j++)
+			const float Dist = FVector::Dist(allAgents[i].Location, allAgents[j].Location);
+			const float Raduis = FMath::Min(allAgents[i].CompatibilityRadius, allAgents[j].CompatibilityRadius);
+
+			if (Dist > Raduis) continue;
+
+
+			bool isLeader = allAgents[i].Personality == EPersonalityType::Leader || allAgents[j].Personality == EPersonalityType::Leader;
+
+			const int32 personalityScroreDiff = FMath::Abs((int32)allAgents[i].Personality - (int32)allAgents[j].Personality);
+			int32 personalityScoreThreshold = 1;
+
+			if (!isLeader && personalityScroreDiff > personalityScoreThreshold) continue;
+
+			int32 NextGroupID = 0;
+
+			groupeID = (allAgents[i].GroupID != -1) ? allAgents[i].GroupID : ++NextGroupID;
+			allAgents[i].GroupID = groupeID;
+			allAgents[j].GroupID = groupeID;
+
+		}
+	}
+
+	for (int32 i = 0; i < allAgents.Num(); ++i)
+	{
+		if (allAgents[i].GroupID != -1)
+			GroupMap.FindOrAdd(allAgents[i].GroupID).Add(i);
+	}
+
+
+	for (auto& [GID, Members] : GroupMap)
+	{
+		FVector SumPos(0), SumVel(0);
+		for (int32 idx : Members)
+		{
+			SumPos += allAgents[idx].Location;
+			SumVel += allAgents[idx].Velocity;
+		}
+		const float Inv = 1.f / Members.Num();
+		GroupDataMap.Add(GID, { SumPos * Inv, SumVel * Inv });
+	}
+
+	EntityQuery.ForEachEntityChunk(Context,
+		[&allAgents, &GroupDataMap](FMassExecutionContext& Ctx)
+		{
+
+		});
+
+	FVector separationVector = FVector::ZeroVector;
+	FVector alignementVector = FVector::ZeroVector;
+	FVector cohesionVector = FVector::ZeroVector;
+	for (int i = 0; i < allAgents.Num(); i++)
+	{
+		for (int y = 0; y < allAgents.Num(); y++)
+		{
+			if (i == y) continue;
+			if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
+			const float Dist = FVector::Dist(allAgents[i].Location, allAgents[y].Location);
+			const float Raduis = FMath::Min(allAgents[i].CompatibilityRadius, allAgents[y].CompatibilityRadius);
+			if (Dist > Raduis) continue;
+			//separation
+			for (FAgentSnapshot agent : allAgents)
 			{
-				if (allAgents[j].GroupID != -1) continue;
-
-				const float Dist = FVector::Dist(allAgents[i].Location, allAgents[j].Location);
-				const float Raduis = FMath::Min(allAgents[i].CompatibilityRadius, allAgents[j].CompatibilityRadius);
-
-				if (Dist > Raduis) continue;
-
-
-				bool isLeader = allAgents[i].Personality == EPersonalityType::Leader || allAgents[j].Personality == EPersonalityType::Leader;
-
-				const int32 personalityScroreDiff = FMath::Abs((int32)allAgents[i].Personality - (int32)allAgents[j].Personality);
-				int32 personalityScoreThreshold = 1;
-
-				if (!isLeader && personalityScroreDiff > personalityScoreThreshold) continue;
-
-				int32 NextGroupID = 0;
-
-				groupeID = (allAgents[i].GroupID != -1) ? allAgents[i].GroupID : ++NextGroupID;
-				allAgents[i].GroupID = groupeID;
-				allAgents[j].GroupID = groupeID;
+				if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
+				separationVector += (allAgents[i].Location - allAgents[y].Location).GetSafeNormal() / Dist;
 
 			}
+			
+			allAgents[i].Velocity += separationVector * SeparationWeight;
 
-
-			for (int32 i = 0; i < allAgents.Num(); ++i)
+			//alignmen t
+			for (FAgentSnapshot agent : allAgents)
 			{
-				if (allAgents[i].GroupID != -1)
-					GroupMap.FindOrAdd(allAgents[i].GroupID).Add(i);
+				if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
+				alignementVector += allAgents[y].Velocity;
+			}
+			alignementVector /= allAgents.Num() - 1;
+			alignementVector -= allAgents[i].Velocity;
+
+			alignementVector.Normalize();
+
+			allAgents[i].Velocity += alignementVector * AlignementWeight;
+
+			//cohesion
+			for (FAgentSnapshot agent : allAgents)
+			{
+				if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
+				cohesionVector += allAgents[y].Location;
 			}
 
+			cohesionVector /= allAgents.Num() - 1;
+			cohesionVector -= allAgents[i].Location;
 
-			for (auto& [GID, Members] : GroupMap)
-			{
-				FVector SumPos(0), SumVel(0);
-				for (int32 idx : Members)
-				{
-					SumPos += allAgents[idx].Location;
-					SumVel += allAgents[idx].Velocity;
-				}
-				const float Inv = 1.f / Members.Num();
-				GroupDataMap.Add(GID, { SumPos * Inv, SumVel * Inv });
-			}
+			cohesionVector.Normalize();
 
-			EntityQuery.ForEachEntityChunk(Context,
-				[&allAgents, &GroupDataMap](FMassExecutionContext& Ctx)
-				{
-
-				});
-
-			FVector separationVector = FVector::ZeroVector;
-			FVector alignementVector = FVector::ZeroVector;
-			FVector cohesionVector = FVector::ZeroVector;
-			for (int i = 0; i < allAgents.Num(); i++)
-			{
-				for (int y = 0; y < allAgents.Num(); y++)
-				{
-					if (i == y) continue;
-					if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
-					const float Dist = FVector::Dist(allAgents[i].Location, allAgents[y].Location);
-					const float Raduis = FMath::Min(allAgents[i].CompatibilityRadius, allAgents[y].CompatibilityRadius);
-					if (Dist > Raduis) continue;
-					//separation
-					for (FAgentSnapshot agent : allAgents)
-					{
-						if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
-						separationVector += (allAgents[i].Location - allAgents[y].Location).GetSafeNormal() / Dist;
-
-					}
-					
-					allAgents[i].Velocity += separationVector * SeparationWeight;
-
-					//alignmen t
-					for (FAgentSnapshot agent : allAgents)
-					{
-						if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
-						alignementVector += allAgents[y].Velocity;
-					}
-					alignementVector /= allAgents.Num() - 1;
-					alignementVector -= allAgents[i].Velocity;
-
-					alignementVector.Normalize();
-
-					allAgents[i].Velocity += alignementVector * AlignementWeight;
-
-					//cohesion
-					for (FAgentSnapshot agent : allAgents)
-					{
-						if (allAgents[i].GroupID != allAgents[y].GroupID) continue;
-						cohesionVector += allAgents[y].Location;
-					}
-
-					cohesionVector /= allAgents.Num() - 1;
-					cohesionVector -= allAgents[i].Location;
-
-					cohesionVector.Normalize();
-
-					allAgents[i].Velocity += cohesionVector * cohesionWeight;
-				}
-			}
-
-	});
+			allAgents[i].Velocity += cohesionVector * cohesionWeight;
+		}
+	}
 }
