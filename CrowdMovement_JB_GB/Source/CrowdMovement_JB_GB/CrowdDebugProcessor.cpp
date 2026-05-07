@@ -49,7 +49,6 @@ void UCrowdDebugProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPhaseFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
-    EntityQuery.AddRequirement<FCrowdBoidsFragment>(EMassFragmentAccess::ReadOnly);
 
 	EntityQuery.RegisterWithProcessor(*this);
 #endif
@@ -88,14 +87,12 @@ void UCrowdDebugProcessor::Execute(FMassEntityManager & Manager, FMassExecutionC
             const TConstArrayView<FCrowdPOIFragment>    POIs = Ctx.GetFragmentView<FCrowdPOIFragment>();
 			const TConstArrayView<FCrowdFragments>       Personalities = Ctx.GetFragmentView<FCrowdFragments>();
             const TConstArrayView<FCrowdPhaseFragments> Phases = Ctx.GetFragmentView<FCrowdPhaseFragments>();
-            const auto Boids = Ctx.GetFragmentView<FCrowdBoidsFragment>();
 
             for (int32 i = 0; i < NumEntities; ++i)
             {
                 const FVector AgentLocation = Transforms[i].GetTransform().GetLocation() + FVector(0.f, 0.f, 90.f);
                 const FCrowdPOIFragment& POI = POIs[i];
                 const FCrowdPhaseFragments& Phase = Phases[i];
-				const FCrowdBoidsFragment& Boid = Boids[i];
 
                 FColor  LineColor = FColor::White;
                 FString PhaseName = TEXT("?");

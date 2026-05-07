@@ -9,17 +9,15 @@
 // Sets default values
 ACrowdPOIActor::ACrowdPOIActor()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 
 	AttractionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AttractionSphere"));
 	AttractionSphere->SetSphereRadius(AttractionRadius);
 	AttractionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	AttractionSphere->SetVisibility(true);
-	AttractionSphere->bHiddenInGame = true; // invisible en jeu, visible dans l'éditeur
+	AttractionSphere->bHiddenInGame = true; 
 	RootComponent = AttractionSphere;
-
-	// Billboard pour repérer facilement le POI dans la scène
+	
 	Billboard = CreateDefaultSubobject<UBillboardComponent>(TEXT("Billboard"));
 	Billboard->SetupAttachment(RootComponent);
 }
@@ -31,7 +29,7 @@ void ACrowdPOIActor::BeginPlay()
 
 	if (UCrowdPOISubsystem* Subsystem = GetWorld()->GetSubsystem<UCrowdPOISubsystem>())
 	{
-		Subsystem->RegisterPOI(this, GetActorLocation(), AttractionRadius, ObeservationTime);
+		Subsystem->RegisterPOI(this, GetActorLocation(), POIType, AttractionRadius, ObeservationTime, MaxOccupant);
 	}
 	
 }
@@ -40,7 +38,7 @@ void ACrowdPOIActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (UCrowdPOISubsystem* Subsystem = GetWorld()->GetSubsystem<UCrowdPOISubsystem>())
 	{
-		Subsystem->deletePOI(this);
+		Subsystem->DeletePOI(this);
 	}
 
 	Super::EndPlay(EndPlayReason);

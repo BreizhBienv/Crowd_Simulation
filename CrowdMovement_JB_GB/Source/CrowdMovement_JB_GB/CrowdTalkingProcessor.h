@@ -7,14 +7,13 @@
 #include "MassEntityQuery.h"
 #include "CrowdTalkingProcessor.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class CROWDMOVEMENT_JB_GB_API UCrowdTalkingProcessor : public UMassProcessor
 {
 	GENERATED_BODY()
-
+public:
+	
 	UCrowdTalkingProcessor();
 
 protected:

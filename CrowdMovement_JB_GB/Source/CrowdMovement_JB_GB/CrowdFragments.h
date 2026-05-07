@@ -1,26 +1,21 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MassEntityTypes.h" 
-#include "MassCommonFragments.h"
+#include "MassEntityTypes.h"
 #include "MassEntityHandle.h"
 #include "CrowdFragments.generated.h"
 
-//**
-// create all the parameters need to simulate a crowd comportement 
-//**
-
 UENUM(BlueprintType)
-enum class EPersonalityType :uint8
+enum class EPersonalityType : uint8
 {
 	Calm	UMETA(DisplayName = "Calme"),
 	Social	UMETA(DisplayName = "Sociale"),
-	Nervous UMETA(DisplayName = "Nerveux"),
-	Leader  UMETA(DisplayName = "Leader"),
+	Nervous	UMETA(DisplayName = "Nerveux"),
+	Leader	UMETA(DisplayName = "Leader"),
 };
 
 UENUM(BlueprintType)
-enum class ECrowdPhase :uint8
+enum class ECrowdPhase : uint8
 {
 	Passive_Walk,
 	Passive_Observation,
@@ -29,31 +24,37 @@ enum class ECrowdPhase :uint8
 	Active_Fighting,
 };
 
-
+UENUM(BlueprintType)
+enum class ECrewRole : uint8
+{
+	Pilot		UMETA(DisplayName = "Pilote"),
+	Engineer	UMETA(DisplayName = "Ingenieur"),
+	Medic		UMETA(DisplayName = "Medecin"),
+	Guard		UMETA(DisplayName = "Garde"),
+	Crew		UMETA(DisplayName = "Equipage"),
+};
 
 
 USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FCrowdFragments : public FMassFragment
 {
 	GENERATED_BODY()
-	
+
 	UPROPERTY(EditAnywhere, Category = "Personality")
 	EPersonalityType Personality = EPersonalityType::Calm;
 
-	UPROPERTY(EditAnywhere, Category = "Personality")
+	UPROPERTY(EditAnywhere, Category = "Personality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float CourageScore = 0.5f;
 
-	UPROPERTY(EditAnywhere, Category = "Personality")
+	UPROPERTY(EditAnywhere, Category = "Personality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float CuriosityScore = 0.5f;
 
-	UPROPERTY(EditAnywhere, Category = "Personality")
+	UPROPERTY(EditAnywhere, Category = "Personality", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float SocialAffinityScore = 0.5f;
 
 	UPROPERTY(EditAnywhere, Category = "Personality")
 	float SpeedBase = 150.f;
-
 };
-
 
 USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FCrowdPhaseFragments : public FMassFragment
@@ -68,11 +69,11 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdPhaseFragments : public FMassFragment
 
 	UPROPERTY()
 	float PhaseTimer = 0.f;
-
+	
 	UPROPERTY()
 	float ThreatAwareness = 0.f;
-
 };
+
 
 USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FCrowdPOIFragment : public FMassFragment
@@ -95,48 +96,94 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdPOIFragment : public FMassFragment
 	bool bIsObserving = false;
 };
 
+
 USTRUCT()
-struct CROWDMOVEMENT_JB_GB_API FCrowdBoidsFragment : public FMassFragment
+struct CROWDMOVEMENT_JB_GB_API FCrowdRoleFragment : public FMassFragment
 {
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, Category = "Role")
+	ECrewRole Role = ECrewRole::Crew;
+
+
+	UPROPERTY()
+	bool bOnDuty = true;
+
+
+	UPROPERTY()
+	float DutyTimer = 0.f;
+
+
+	UPROPERTY()
+	float DutyDuration = 120.f;
+};
+
+
+USTRUCT()
+struct CROWDMOVEMENT_JB_GB_API FCrowdSocialGroupFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	
 	UPROPERTY()
 	int32 GroupID = -1;
 
-	UPROPERTY()
-	bool bInGroup = false;
 
 	FMassEntityHandle GroupLeader;
 
 	UPROPERTY()
-	float CompatibilityRadius = 300.f;
+	bool bIsLeader = false;
+
 
 	UPROPERTY()
-	float SocialUrge = 0.f;
+	FVector SharedDestination = FVector::ZeroVector;
 
 
+	UPROPERTY()
+	float TalkTimer = 0.f;
+
+
+	UPROPERTY()
+	float TalkDuration = 0.f;
 };
+
+
 
 USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FSharedCrowdSettings : public FMassConstSharedFragment
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere)
+
+	UPROPERTY(EditAnywhere, Category = "Perception")
 	float PerceptionRadius = 500.f;
 
-	UPROPERTY(EditAnywhere)
-	int32 MaxGroupSize = 6;
+	UPROPERTY(EditAnywhere, Category = "Social")
+	int32 MaxGroupSize = 4;
 
-	UPROPERTY(EditAnywhere)
-	float BoidCohesionStrength = 0.4f;
+	UPROPERTY(EditAnywhere, Category = "Social", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float GroupFormationChance = 0.6f;
 
-	UPROPERTY(EditAnywhere)
-	float BoidSeparationStrength = 0.8f;
+	UPROPERTY(EditAnywhere, Category = "Social", meta = (ClampMin = "100.0"))
+	float WalkTogetherRadius = 350.f;
 
-	UPROPERTY(EditAnywhere)
-	float BoidAlignmentStrength = 0.3f;
+	UPROPERTY(EditAnywhere, Category = "Social", meta = (ClampMin = "50.0"))
+	float TalkRadius = 120.f;
 
-	UPROPERTY(EditAnywhere)
-	int32 PersonalityCompatibilityThreshold = 1;
+	UPROPERTY(EditAnywhere, Category = "Social", meta = (ClampMin = "1.0"))
+	float TalkDurationMin = 5.f;
+
+	UPROPERTY(EditAnywhere, Category = "Social", meta = (ClampMin = "1.0"))
+	float TalkDurationMax = 20.f;
+
+	UPROPERTY(EditAnywhere, Category = "Social", meta = (ClampMin = "1.0", ClampMax = "2.0"))
+	float CatchUpSpeedMultiplier = 1.4f;
+	
+	UPROPERTY(EditAnywhere, Category = "Threat", meta = (ClampMin = "0.1"))
+	float FleeingThreshold = 1.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Threat", meta = (ClampMin = "0.1"))
+	float ThreatAccumulationRate = 0.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Threat", meta = (ClampMin = "100.0"))
+	float ThreatDetectionRadius = 1500.f;
 };
