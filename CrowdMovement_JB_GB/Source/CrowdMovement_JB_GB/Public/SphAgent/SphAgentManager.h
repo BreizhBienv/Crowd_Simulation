@@ -29,7 +29,7 @@ class CROWDMOVEMENT_JB_GB_API ASphAgentManager : public AActor
 	TArray<ASphAgent*> Agents;
 	
 	UPROPERTY(VisibleAnywhere)
-	TArray<struct FWallSegment> WallSegments;
+	TArray<struct FObstacleSegment> ObstaclesSegments;
 	
 	UPROPERTY(VisibleAnywhere, Category="Hash Grid")
 	TMap<uint32, FHashGridData> HashGrid;
@@ -61,5 +61,4 @@ private:
 	FVector FromCellToWorldCoord(FIntVector2 CellId) const;
 	
 	void DebugHashGrid();
-	void DebugObstacles();
 };

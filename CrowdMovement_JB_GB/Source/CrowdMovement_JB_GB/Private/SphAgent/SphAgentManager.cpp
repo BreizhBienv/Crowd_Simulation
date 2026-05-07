@@ -5,7 +5,8 @@
 
 #include "Kismet/GameplayStatics.h"
 #include "SphAgent/SphAgent.h"
-#include "SphAgent/SphWallLibrary.h"
+#include "SphAgent/SphObstacleHelper.h"
+#include "SphAgent/SphObstacleSubSystem.h"
 
 #define CONVERT_M_TO_CM 100.f
 
@@ -26,9 +27,7 @@ void ASphAgentManager::BeginPlay()
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASphAgent::StaticClass(), actors);
 	Agents = reinterpret_cast<TArray<ASphAgent*>&>(actors);
 	
-	
-	SphWallLibrary::ExtractWallSegments(SphWallLibrary::GetNavMesh(GetWorld()), WallSegments);
-	DebugObstacles();
+	ObstaclesSegments = GetWorld()->GetSubsystem<USphObstacleSubSystem>()->GetObstacleSegments();
 }
 
 // Called every frame
@@ -118,7 +117,7 @@ void ASphAgentManager::FindAgentsNeighbours()
 void ASphAgentManager::ComputeRequiredComponents()
 {
 	for (ASphAgent* agent : Agents)
-		agent->ComputeRequiredComponents(WallSegments);
+		agent->ComputeRequiredComponents(ObstaclesSegments);
 }
 
 void ASphAgentManager::ComputeForces(float DeltaTime)
@@ -140,17 +139,5 @@ void ASphAgentManager::DebugHashGrid()
 		FVector cellExtent = FVector(CellSize.X, CellSize.Y, 0) / 2.f - FVector(0.5f, 0.5f, 0);
 		
 		DrawDebugBox(GetWorld(), cellLocation, cellExtent, FColor::Green);
-	}
-}
-
-void ASphAgentManager::DebugObstacles()
-{
-	for (const FWallSegment& segment : WallSegments)
-	{
-		DrawDebugLine(
-			GetWorld(),
-			FVector(segment.point0 * CONVERT_M_TO_CM, 20.f),
-			FVector(segment.point1 * CONVERT_M_TO_CM, 20.f),
-			FColor::Red,true,-1,0,2.f);
 	}
 }

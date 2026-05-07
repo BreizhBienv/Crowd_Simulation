@@ -42,6 +42,9 @@ class CROWDMOVEMENT_JB_GB_API UCrowdAgentTrait : public UMassEntityTraitBase
 
 	UPROPERTY(EditAnywhere, Category = "Crowd|Settings")
 	FSharedCrowdSettings SharedSettings;
+	
+	UPROPERTY(EditAnywhere, Category = "Crowd|SphSettings")
+	FSharedSphCrowdSettings SphCrowdSettings;
 
 protected:
 	virtual void BuildTemplate(FMassEntityTemplateBuildContext& BuildContext,

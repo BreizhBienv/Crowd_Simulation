@@ -5,7 +5,6 @@
 #include"MassEntityTemplateRegistry.h"
 #include"CrowdFragments.h"
 #include"CrowdTags.h"
-#include"MassCommonFragments.h"
 
 void UCrowdAgentTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildContext, const UWorld& World) const
 {
@@ -44,4 +43,13 @@ void UCrowdAgentTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildConte
 	}
 
 	BuildContext.AddFragment_GetRef<FCrowdFragments>() = PersonalityData;
+	
+	//Sph
+	BuildContext.AddFragment<FSphFragment>();
+	BuildContext.AddFragment<FSphForcesFragment>();
+	
+	FSharedSphCrowdSettings localSphSettings = SphCrowdSettings;
+	localSphSettings.ObstaclesSegments = World.GetSubsystem<USphObstacleSubSystem>()->GetObstacleSegments();
+	
+	BuildContext.AddConstSharedFragment(FSharedStruct::Make(localSphSettings));
 }

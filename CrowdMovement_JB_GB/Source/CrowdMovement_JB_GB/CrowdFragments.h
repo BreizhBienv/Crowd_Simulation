@@ -4,6 +4,7 @@
 #include "MassEntityTypes.h" 
 #include "MassCommonFragments.h"
 #include "MassEntityHandle.h"
+#include "SphAgent/SphObstacleSubSystem.h"
 #include "CrowdFragments.generated.h"
 
 //**
@@ -140,3 +141,61 @@ struct CROWDMOVEMENT_JB_GB_API FSharedCrowdSettings : public FMassConstSharedFra
 	UPROPERTY(EditAnywhere)
 	int32 PersonalityCompatibilityThreshold = 1;
 };
+
+USTRUCT()
+struct CROWDMOVEMENT_JB_GB_API FSharedSphCrowdSettings : public FMassSharedFragment
+{
+	GENERATED_BODY()
+	
+	/// Pressure constant
+	UPROPERTY(EditAnywhere, meta=(ClampMin=0, UIMin=0), Category="SPH")
+	float k = 5;
+	
+	UPROPERTY(EditAnywhere, Category="SPH")
+	float muViscosity = 10.f;
+	
+	TArray<FObstacleSegment> ObstaclesSegments;
+};
+
+USTRUCT()
+struct CROWDMOVEMENT_JB_GB_API FSphFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	
+	/// The maximum distance in meters other particles are considered
+	UPROPERTY(EditAnywhere, Category="SPH")
+	float h = 2;
+	
+	/// The mass of the agent in kg
+	UPROPERTY(EditAnywhere, Category="SPH")
+	float mass = 60;
+	
+	/// Density in Kg/m^3 the particle is aiming for
+	UPROPERTY(EditAnywhere, Category="SPH")
+	float comfortDensity = 5;
+	
+	/// How much the agent is bothered by an obstacle
+	UPROPERTY(EditAnywhere, Category="SPH")
+	float obstacleAreaCoef = 3.f;
+};
+
+USTRUCT()
+struct CROWDMOVEMENT_JB_GB_API FSphForcesFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere, Category="SPH")
+	float pressure = 0;
+	
+	UPROPERTY(VisibleAnywhere, Category="SPH")
+	float density = 0;
+	
+	UPROPERTY(VisibleAnywhere, Category="SPH")
+	FVector acceleration = FVector::ZeroVector;
+};
+
+namespace UE::Mass::ProcessorGroupNames
+{
+	const FName SphComponents = FName(TEXT("SphComponents"));
+	const FName SphForces = FName(TEXT("SphForces"));
+}

@@ -22,7 +22,7 @@ class CROWDMOVEMENT_JB_GB_API ASphAgent : public ACharacter
 
 	/// The maximum distance other particles are considered
 	UPROPERTY(EditAnywhere, Category="SPH")
-	float influenceDistance = 100;
+	float h = 2;
 	
 	UPROPERTY(EditAnywhere, Category="SPH")
 	float mass = 1;
@@ -52,7 +52,7 @@ class CROWDMOVEMENT_JB_GB_API ASphAgent : public ACharacter
 	TArray<FSphAgentNeighbourData> neighbours;
 	
 	UPROPERTY(VisibleAnywhere, Category="SPH")
-	TArray<struct FWallSegment> wallSegments;
+	TArray<struct FObstacleSegment> wallSegments;
 	
 	UPROPERTY(VisibleAnywhere, Category="SPH")
 	FVector acceleration = FVector::ZeroVector;
@@ -69,7 +69,7 @@ protected:
 	virtual void BeginPlay() override;
 
 public:	
-	float InfluenceDistance() const	{ return influenceDistance;	}
+	float InfluenceDistance() const	{ return h;	}
 	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -78,38 +78,16 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	void SetNeighboursData(const TArray<FSphAgentNeighbourData>& data);
-	bool ComputeSegmentData(const struct FWallSegment& segment, FWallSegment& outData) const;
 	
-	void ComputeRequiredComponents(const TArray<struct FWallSegment>& obstacles);
+	void ComputeRequiredComponents(const TArray<struct FObstacleSegment>& obstacles);
 	void ComputeSphForces(float DeltaTime);
 
 protected:
 	
-	static FVector2D GetActorLocation2D(const AActor* actor);
 	float ComputeDensityFromNeighbours() const;
-	float ComputeDensityFromSegment(const FWallSegment& segment) const;
-	void ComputePressure();
 	FVector2D ComputePressureFromNeighbours(const FSphAgentNeighbourData& neighbour) const;
 	FVector2D ComputePressureFromObstacles() const;
 	FVector2D ComputeViscosityFromNeighbours(const FSphAgentNeighbourData& neighbour) const;
-	void ComputeAcceleration(const FVector2D& fPressure, const FVector2D& fViscosity, float DeltaTime);
-
-	/// Used for the local density, takes r and h in m and not cm
-	/// @param r direction vector with its distance between the agent and it's neighbour
-	/// @param h distance of influence of the agent
-	/// @return 
-	static float Poly6Kernel(const FVector2D& r, float h);
-
-	/// Used as gradient for the pressure force, takes r and h in m and not cm
-	/// @param r direction vector with its distance between the agent and it's neighbour
-	/// @param h distance of influence of the agent
-	/// @return 
-	static FVector2D SpikyKernel(const FVector2D& r, float h);
-
-	/// Used as gradient for the viscosity, takes r and h in m and not cm
-	/// @param r direction vector with its distance between the agent and it's neighbour
-	/// @param h distance of influence of the agent
-	/// @return 
-	static float MullerKernel(const FVector2D& r, float h);
+	void ComputeAcceleration(const FVector2D& fPressure, const FVector2D& fViscosity);
 	
 };
