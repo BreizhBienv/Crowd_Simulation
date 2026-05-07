@@ -15,7 +15,15 @@ UCLASS(meta = (DisplayName = "Crowd Agent Trait"))
 class CROWDMOVEMENT_JB_GB_API UCrowdAgentTrait : public UMassEntityTraitBase
 {
 	GENERATED_BODY()
+	// ship function 
 	
+	UPROPERTY(EditAnywhere, Category = "Crowd|Role")
+	ECrewRole DefaultRole = ECrewRole::Crew;
+ 
+	UPROPERTY(EditAnywhere, Category = "Crowd|Role")
+	bool bRandomizeRole = false;
+	
+	// personality 
 	UPROPERTY(EditAnywhere, Category = "Crowd|Personality")
 	EPersonalityType DefaultPersonality = EPersonalityType::Calm;
 

@@ -36,6 +36,7 @@ void UCrowdTalkingProcessor::Execute(FMassEntityManager & Manager, FMassExecutio
 	EntityQuery.ForEachEntityChunk(Context,
 		[](FMassExecutionContext& Ctx) 
 		{
+			
 
 		});
 }

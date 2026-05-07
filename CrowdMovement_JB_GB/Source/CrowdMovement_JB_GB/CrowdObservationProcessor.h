@@ -9,7 +9,7 @@
 
 
 UCLASS()
-class CROWDMOVEMENT_JB_GB_API UCrowdObservationProcessor : public UMassObserverProcessor
+class CROWDMOVEMENT_JB_GB_API UCrowdObservationProcessor : public UMassProcessor
 {
 	GENERATED_BODY()
 	

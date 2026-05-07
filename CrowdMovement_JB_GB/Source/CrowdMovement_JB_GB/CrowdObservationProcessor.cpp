@@ -6,7 +6,6 @@
 #include "crowdTags.h"
 #include "MassExecutionContext.h"
 #include "MassCommonTypes.h"
-#include "MassCommonFragments.h"
 
 UCrowdObservationProcessor::UCrowdObservationProcessor()
 {
@@ -21,7 +20,6 @@ void UCrowdObservationProcessor::ConfigureQueries(const TSharedRef<FMassEntityMa
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
     EntityQuery.AddRequirement<FCrowdPhaseFragments>(EMassFragmentAccess::ReadWrite);
-	EntityQuery.AddRequirement<FCrowdBoidsFragment>(EMassFragmentAccess::ReadWrite);
 
 	EntityQuery.AddTagRequirement<FTagPassiveObserving>(EMassFragmentPresence::All);
 

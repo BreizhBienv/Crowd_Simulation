@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MassObserverProcessor.h"
+#include "MassProcessor.h"
 #include "MassEntityQuery.h"
 #include "CrowdInitObserver.generated.h"
 
@@ -11,7 +11,7 @@
  * 
  */
 UCLASS()
-class CROWDMOVEMENT_JB_GB_API UCrowdInitObserver :public UMassObserverProcessor
+class CROWDMOVEMENT_JB_GB_API UCrowdInitObserver :public UMassProcessor
 {
 	GENERATED_BODY()
 	

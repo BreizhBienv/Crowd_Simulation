@@ -11,45 +11,44 @@ void UCrowdAgentTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildConte
 	BuildContext.AddFragment<FCrowdFragments>();
 	BuildContext.AddFragment<FCrowdPhaseFragments>();
 	BuildContext.AddFragment<FCrowdPOIFragment>();
-	BuildContext.AddFragment<FCrowdBoidsFragment>();
-
+	BuildContext.AddFragment<FCrowdRoleFragment>();
+	BuildContext.AddFragment<FCrowdSocialGroupFragment>();
+ 
 	BuildContext.AddConstSharedFragment(FSharedStruct::Make(SharedSettings));
+ 
 
 	BuildContext.AddTag<FTagPassiveWalking>();
+ 
 
-	FCrowdFragments PersonalityData;
-
-	if (bRandomizePersonality)
+	BuildContext.AddTag<FTagNeedsInit>();
+	
 	{
-		const int32 RandType = FMath::RandRange(0, 3);
-		//choose random between 4 personality 
-		PersonalityData.Personality= static_cast<EPersonalityType>(RandType);
-
-		PersonalityData.CourageScore = FMath::FRandRange(courageRange.X, courageRange.Y);
-		PersonalityData.CuriosityScore = FMath::FRandRange(curiosityRange.X, curiosityRange.Y);
-		PersonalityData.SocialAffinityScore = FMath::FRandRange(socialAffinityRange.X, socialAffinityRange.Y);
-
-		PersonalityData.SpeedBase = FMath::FRandRange(speedRange.X, speedRange.Y);
+		FCrowdFragments DefaultData;
+		DefaultData.Personality         = DefaultPersonality;
+		DefaultData.CourageScore        = (courageRange.X + courageRange.Y) * 0.5f;
+		DefaultData.CuriosityScore      = (curiosityRange.X + curiosityRange.Y) * 0.5f;
+		DefaultData.SocialAffinityScore = (socialAffinityRange.X + socialAffinityRange.Y) * 0.5f;
+		DefaultData.SpeedBase           = (speedRange.X + speedRange.Y) * 0.5f;
+		BuildContext.AddFragment_GetRef<FCrowdFragments>() = DefaultData;
 	}
-	else
+	
 	{
-		PersonalityData.Personality = DefaultPersonality;
-
-		PersonalityData.CourageScore = (courageRange.X + courageRange.Y) * 0.5;
-		PersonalityData.CuriosityScore = (curiosityRange.X + curiosityRange.Y) * 0.5;
-		PersonalityData.SocialAffinityScore =(socialAffinityRange.X + socialAffinityRange.Y) * 0.5;
-
-		PersonalityData.SpeedBase = (speedRange.X + speedRange.Y) * 0.5 ;
+		FCrowdRoleFragment RoleData;
+		RoleData.Role        = DefaultRole;
+		RoleData.bOnDuty     = true;
+		RoleData.DutyTimer   = 0.f;
+		RoleData.DutyDuration = FMath::FRandRange(90.f, 150.f);
+		BuildContext.AddFragment_GetRef<FCrowdRoleFragment>() = RoleData;
 	}
-
-	BuildContext.AddFragment_GetRef<FCrowdFragments>() = PersonalityData;
 	
 	//Sph
-	BuildContext.AddFragment<FSphFragment>();
-	BuildContext.AddFragment<FSphForcesFragment>();
-	
-	FSharedSphCrowdSettings localSphSettings = SphCrowdSettings;
-	localSphSettings.ObstaclesSegments = World.GetSubsystem<USphObstacleSubSystem>()->GetObstacleSegments();
-	
-	BuildContext.AddConstSharedFragment(FSharedStruct::Make(localSphSettings));
+	{
+		BuildContext.AddFragment<FSphFragment>();
+		BuildContext.AddFragment<FSphForcesFragment>();
+		
+		FSharedSphCrowdSettings localSphSettings = SphCrowdSettings;
+		localSphSettings.ObstaclesSegments = World.GetSubsystem<USphObstacleSubSystem>()->GetObstacleSegments();
+		
+		BuildContext.AddConstSharedFragment(FSharedStruct::Make(localSphSettings));
+	}
 }
