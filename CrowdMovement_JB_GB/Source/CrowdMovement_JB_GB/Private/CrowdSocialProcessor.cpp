@@ -72,9 +72,9 @@ void UCrowdSocialProcessor::Execute(FMassEntityManager& Manager, FMassExecutionC
 			
 			for (int32 i = 0; i < NumEntities; ++i)
 			{
-				FCrowdSocialGroupFragment Social = Socials[i];
-				FCrowdPhaseFragments Phase = Phases[i];
-				FMassMoveTargetFragment MoveTarget = MoveTargets[i];
+				FCrowdSocialGroupFragment& Social = Socials[i];
+				FCrowdPhaseFragments& Phase = Phases[i];
+				FMassMoveTargetFragment& MoveTarget = MoveTargets[i];
 				FCrowdPOIFragment POI = POIs[i];
 				
 				if (Social.GroupID < 0) continue;
