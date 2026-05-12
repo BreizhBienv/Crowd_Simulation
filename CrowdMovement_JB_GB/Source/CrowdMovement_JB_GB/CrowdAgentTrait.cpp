@@ -37,7 +37,7 @@ void UCrowdAgentTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildConte
 		RoleData.Role        = DefaultRole;
 		RoleData.bOnDuty     = true;
 		RoleData.DutyTimer   = 0.f;
-		RoleData.DutyDuration = FMath::FRandRange(90.f, 150.f);
+		RoleData.DutyDuration = 120.f;
 		BuildContext.AddFragment_GetRef<FCrowdRoleFragment>() = RoleData;
 	}
 	

@@ -23,16 +23,28 @@ void UCrowdPOISubsystem::RegisterPOI(AActor* Actor, FVector Location,EPOIType ty
 	newPOI.CurrOccupant = 0;
 
 	RegisteredPOIs.Add(newPOI);
+	POIsByType.FindOrAdd(type).Add(newPOI);
 }
 
 void UCrowdPOISubsystem::DeletePOI(AActor * toRemove)
 {
-	if (!toRemove) return;
+	if (!toRemove) 
+		return;
+	
+	int32 RemovedIdx = RegisteredPOIs.IndexOfByPredicate(
+		[toRemove](const FCrowdPOIData& P)
+		{ return P.SourceActor == toRemove; });
+	
+	if (RemovedIdx == INDEX_NONE) 
+		return;
+	
+	EPOIType RemovedType = RegisteredPOIs[RemovedIdx].Type;
+	RegisteredPOIs.RemoveAt(RemovedIdx);
 
-	RegisteredPOIs.RemoveAll([toRemove](const FCrowdPOIData& POI)
-	{
-		return POI.SourceActor == toRemove;
-	});
+	
+	if (TArray<FCrowdPOIData>* Bucket = POIsByType.Find(RemovedType))
+		Bucket->RemoveAll([toRemove](const FCrowdPOIData& P)
+			{ return P.SourceActor == toRemove; });
 }
 
 void UCrowdPOISubsystem::GetNearPOI(const FVector & location, float raduis, TArray<FCrowdPOIData>& OutPOI) const
@@ -56,44 +68,21 @@ bool UCrowdPOISubsystem::GetRandomNearPOI(const FVector & location, float raduis
 {
 	TArray<FCrowdPOIData> Candidates;
 	GetNearPOI(location, raduis, Candidates);
-	if (Candidates.IsEmpty()) return false;
- 
-	OutPOI = Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
-	return true;
+	return PickRandom(Candidates, OutPOI);
 }
 
 bool UCrowdPOISubsystem::GetRandomPOIForRole(const FVector& Location, float Radius, ECrewRole Role,
 	FCrowdPOIData& OutPOI) const
 {
-	TArray<FCrowdPOIData>outPOIs;
-	TArray<EPOIType> CompatibleType = GetPOITypesForRole(Role);
+	const TArray<EPOIType> ValidTypes = GetPOITypesForRole(Role);
 	
-	for (const FCrowdPOIData& POI : RegisteredPOIs)
-	{
-		if (!CompatibleType.Contains(POI.Type))continue;
-		
-		const float Dist = FVector::Dist2D(Location, POI.Location);
-		if (Dist > Radius) continue;
- 
-		if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
- 
-		outPOIs.Add(POI);
-		
-	}
-	if (outPOIs.IsEmpty())
-	{
-		for (const FCrowdPOIData& POI : RegisteredPOIs)
-		{
-			if (!CompatibleType.Contains(POI.Type)) continue;
-			if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
-			outPOIs.Add(POI);
-		}
-	}
- 
-	if (outPOIs.IsEmpty()) return false;
- 
-	OutPOI = outPOIs[FMath::RandRange(0, outPOIs.Num() - 1)];
-	return true;
+	TArray<FCrowdPOIData> Candidates;
+	CollectCandidates(ValidTypes, Location, Radius, Candidates);
+	
+	if (Candidates.IsEmpty())
+		CollectCandidates(ValidTypes, Location, -1.f, Candidates);
+	
+	return PickRandom(Candidates, OutPOI);
 }
 
 bool UCrowdPOISubsystem::GetRandomSocialPOI(const FVector& Location, float Radius, FCrowdPOIData& OutPOI) const
@@ -101,42 +90,24 @@ bool UCrowdPOISubsystem::GetRandomSocialPOI(const FVector& Location, float Radiu
 	const TArray<EPOIType> SocialTypes = GetSocialPOITypes();
  
 	TArray<FCrowdPOIData> Candidates;
-	for (const FCrowdPOIData& POI : RegisteredPOIs)
-	{
-		if (!SocialTypes.Contains(POI.Type)) continue;
- 
-		const float Dist = FVector::Dist2D(Location, POI.Location);
-		if (Dist > Radius) continue;
- 
-		if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
- 
-		Candidates.Add(POI);
-	}
+	CollectCandidates(SocialTypes, Location, Radius, Candidates);
  
 	if (Candidates.IsEmpty())
-	{
-		for (const FCrowdPOIData& POI : RegisteredPOIs)
-		{
-			if (!SocialTypes.Contains(POI.Type)) continue;
-			Candidates.Add(POI);
-		}
-	}
+		CollectCandidates(SocialTypes, Location, -1.f, Candidates);
  
-	if (Candidates.IsEmpty()) return false;
- 
-	OutPOI = Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
-	return true;
+	return PickRandom(Candidates, OutPOI);
 }
 
 bool UCrowdPOISubsystem::GetNearestEscapePoint(const FVector& Location, FCrowdPOIData& OutPOI) const
 {
-	float   BestDist = FLT_MAX;
-	bool    bFound   = false;
+	const TArray<FCrowdPOIData>* EscapeBucket = POIsByType.Find(EPOIType::EscapePod);
+	if (!EscapeBucket || EscapeBucket->IsEmpty()) return false;
  
-	for (const FCrowdPOIData& POI : RegisteredPOIs)
+	float BestDist = FLT_MAX;
+	bool  bFound   = false;
+ 
+	for (const FCrowdPOIData& POI : *EscapeBucket)
 	{
-		if (POI.Type != EPOIType::EscapePod) continue;
- 
 		const float Dist = FVector::Dist(Location, POI.Location);
 		if (Dist < BestDist)
 		{
@@ -152,16 +123,14 @@ void UCrowdPOISubsystem::IncrementOccupants(AActor* POIActor)
 {
 	for (FCrowdPOIData& POI : RegisteredPOIs)
 	{
-		if (POI.SourceActor == POIActor)
-		{
-			POI.CurrOccupant++;
-			return;
-		}
+		if (POI.SourceActor == POIActor) 
+			{ POI.CurrOccupant++; return; }
 	}
 }
 
 void UCrowdPOISubsystem::DecrementOccupants(AActor* POIActor)
 {
+	
 	for (FCrowdPOIData& POI : RegisteredPOIs)
 	{
 		if (POI.SourceActor == POIActor)
@@ -197,4 +166,31 @@ TArray<EPOIType> UCrowdPOISubsystem::GetPOITypesForRole(ECrewRole Role)
 TArray<EPOIType> UCrowdPOISubsystem::GetSocialPOITypes()
 {
 	return { EPOIType::Canteen, EPOIType::Lounge, EPOIType::Dormitory };
+}
+
+bool UCrowdPOISubsystem::PickRandom(const TArray<FCrowdPOIData>& Candidates, FCrowdPOIData& OutPOI) const
+{
+	if (Candidates.IsEmpty()) 
+		return false;
+	
+	OutPOI = Candidates[FMath::RandRange(0, Candidates.Num() - 1)];
+	
+	return true;
+}
+
+void UCrowdPOISubsystem::CollectCandidates(const TArray<EPOIType>& Types, const FVector& Location, float Radius,
+	TArray<FCrowdPOIData>& OutCandidates) const
+{
+	for (EPOIType T : Types)
+	{
+		const TArray<FCrowdPOIData>* Bucket = POIsByType.Find(T);
+		if (!Bucket) continue;
+ 
+		for (const FCrowdPOIData& POI : *Bucket)
+		{
+			if (Radius > 0.f && FVector::Dist2D(Location, POI.Location) > Radius) continue;
+			if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
+			OutCandidates.Add(POI);
+		}
+	}
 }
