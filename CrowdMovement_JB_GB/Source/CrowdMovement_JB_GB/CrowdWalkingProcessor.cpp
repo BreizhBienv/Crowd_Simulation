@@ -88,47 +88,50 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 				
 				if (POI.TargetPOILocation.IsNearlyZero())
 				{
-					if(!SocialGroup.bIsLeader && SocialGroup.GroupID >= 0)
+					
+					if (!SocialGroup.bIsLeader && SocialGroup.GroupID >= 0)
 					{
 						if (!SocialGroup.SharedDestination.IsNearlyZero())
 							POI.TargetPOILocation = SocialGroup.SharedDestination;
 						else
-							continue;
-					}
-				}
-				else
-				{
-					bool bFoundPOI = false;
-					FCrowdPOIData chosenPOI;
-					
-					if (subsystem)
-					{
-						if (Role.bOnDuty)
-							bFoundPOI = subsystem->GetRandomPOIForRole(CurrentLocation, WanderRadius, Role.Role, chosenPOI);
-						else
-							bFoundPOI = subsystem->GetRandomSocialPOI(CurrentLocation, WanderRadius, chosenPOI);
-					}
-					if (bFoundPOI)
-					{
-						POI.TargetPOILocation = chosenPOI.Location;
-						POI.TargetPOIActor = chosenPOI.SourceActor.Get();
-						POI.ObservationDuration = FMath::Lerp(
-							chosenPOI.ObservationDuration * 0.5f,
-								chosenPOI.ObservationDuration * 1.5f,
-								Personality.CuriosityScore);
+							continue; 
 					}
 					else
 					{
-						const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+						
+						bool bFoundPOI = false;
+						FCrowdPOIData chosenPOI;
+						
+						if (subsystem)
+						{
+							if (Role.bOnDuty)
+								bFoundPOI = subsystem->GetRandomPOIForRole(CurrentLocation, WanderRadius, Role.Role, chosenPOI);
+							else
+								bFoundPOI = subsystem->GetRandomSocialPOI(CurrentLocation, WanderRadius, chosenPOI);
+						}
+						if (bFoundPOI)
+						{
+							POI.TargetPOILocation = chosenPOI.Location;
+							POI.TargetPOIActor = chosenPOI.SourceActor.Get();
+							POI.ObservationDuration = FMath::Lerp(
+								chosenPOI.ObservationDuration * 0.5f,
+								chosenPOI.ObservationDuration * 1.5f,
+								Personality.CuriosityScore);
+						}
+						else
+						{
+							
+							const float Angle = FMath::FRandRange(0.f, 2.f * PI);
 							const float Dist  = FMath::FRandRange(WanderRadius * 0.2f, WanderRadius * 0.6f);
 							POI.TargetPOILocation = CurrentLocation + FVector(
 								FMath::Cos(Angle) * Dist,
 								FMath::Sin(Angle) * Dist,
 								0.f);
-					}
-					if (SocialGroup.bIsLeader)
-					{
-						SocialGroup.SharedDestination = POI.TargetPOILocation;
+						}
+						if (SocialGroup.bIsLeader)
+						{
+							SocialGroup.SharedDestination = POI.TargetPOILocation;
+						}
 					}
 				}
 				
@@ -152,7 +155,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					break;
 				}
 				
-				// si le membre du groupe est trop loin on augemente la speed 
+				
 				if (SocialGroup.GroupID >= 0 && !SocialGroup.bIsLeader)
 				{
 					const float DistToShared = FVector::Dist2D(CurrentLocation, SocialGroup.SharedDestination);
