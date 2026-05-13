@@ -63,10 +63,15 @@ public:
 	void IncrementOccupants(AActor* POIActor);
 	void DecrementOccupants(AActor* POIActor);
 private:
+	TMap<EPOIType, TArray<FCrowdPOIData>> POIsByType;
+	
 	TArray<FCrowdPOIData> RegisteredPOIs;
 	
 	static TArray<EPOIType> GetPOITypesForRole(ECrewRole Role);
 	
 	static TArray<EPOIType> GetSocialPOITypes();
 	
+	bool PickRandom(const TArray<FCrowdPOIData>& Candidates, FCrowdPOIData& OutPOI) const;
+	void CollectCandidates(const TArray<EPOIType>& Types, const FVector& Location,
+						   float Radius, TArray<FCrowdPOIData>& OutCandidates) const;
 };
