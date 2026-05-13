@@ -7,6 +7,8 @@
 #include "MassExecutionContext.h"
 #include "MassCommonFragments.h"
 #include "CrowdPOISubsystem.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
 
  
  
@@ -59,6 +61,8 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 			
 			constexpr float WanderRadius     = 1200.f;
 			constexpr float ArrivalThreshold = 150.f;
+			constexpr float WaypointRadius   = 80.f; 
+			constexpr float WalkTimeoutSec   = 30.f;
  
 			for (int32 i = 0; i < NumEntities; ++i)
 			{
@@ -93,7 +97,10 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					if (!SocialGroup.bIsLeader && SocialGroup.GroupID >= 0)
 					{
 						if (!SocialGroup.SharedDestination.IsNearlyZero())
+						{
 							POI.TargetPOILocation = SocialGroup.SharedDestination;
+							POI.bHasNavPath = false;
+						}
 						else
 							continue; 
 					}

@@ -86,6 +86,14 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdPOIFragment : public FMassFragment
 
 	UPROPERTY()
 	TWeakObjectPtr<AActor> TargetPOIActor = nullptr;
+	
+	TArray<FNavPathPoint> NavPathPoints;
+	
+	UPROPERTY()
+	int32 CurrentNavPointIndex = 0;
+	
+	UPROPERTY()
+	bool bHasNavPath = false;
 
 	UPROPERTY()
 	float ObservationTimer = 0.f;
@@ -196,19 +204,19 @@ struct FSphSettingsFragment : public FMassFragment
 	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
 	bool randomizeSphValues = false;	
 	
-	///The range of detection around the entity
+
 	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
 	FVector2D hRange = FVector2D(0.5f, 2.f);
 	
-	///The range of the mass of the entity
+	
 	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
 	FVector2D massRange = FVector2D(50.f, 120.f);
 	
-	/// The range of the density in Kg/m^3 the particle is aiming for
+	
 	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
 	FVector2D comfortRange = FVector2D(3.f, 7.f);
 	
-	/// The range of how much the agent is bothered by an obstacle
+	
 	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
 	FVector2D coefRange = FVector2D(2.f, 4.f);
 };
