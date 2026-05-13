@@ -1,8 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+	// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "MassAi/Sph/SphForcesProcessor.h"
 
+#include "MassCommonFragments.h"
 #include "MassCommonTypes.h"
 #include "MassExecutionContext.h"
 #include "MassMovementFragments.h"
@@ -25,6 +26,7 @@ void USphForcesProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>&
 	
 	EntityQuery.Initialize(EntityManager);
 	
+	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FSphFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FSphForcesFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadWrite);
@@ -37,14 +39,12 @@ void USphForcesProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>&
 
 void USphForcesProcessor::Execute(FMassEntityManager& Manager, FMassExecutionContext& Context)
 {
-	Super::Execute(Manager, Context);
+	//Super::Execute(Manager, Context);
 	
 	UWorld* World = Manager.GetWorld();
-	
 	EntityQuery.ForEachEntityChunk(Context,
 		[World](FMassExecutionContext& Ctx)
 		{
-			const float DeltaTime = Ctx.GetDeltaTimeSeconds();
 			const int32 NumEntities = Ctx.GetNumEntities();
 			
 			const TConstArrayView<FTransformFragment>	transforms = Ctx.GetFragmentView<FTransformFragment>();
@@ -85,11 +85,14 @@ void USphForcesProcessor::Execute(FMassEntityManager& Manager, FMassExecutionCon
 					settings.muViscosity * fViscosity, 
 					sphForces[i].density);
 				
-				VelocityFragments[i].Value += acceleration * DeltaTime;
+				//VelocityFragments[i].Value += acceleration;
+				sphForces[i].acceleration = acceleration;
 				
 				//Debug
 				const FVector normalizedAcceleration = acceleration.GetSafeNormal();
-				DrawDebugLine(World, transforms[i].GetTransform().GetLocation(), transforms[i].GetTransform().GetLocation() + normalizedAcceleration * 100.f, FColor::Yellow);
+				const FVector normalizedVelocity = VelocityFragments[i].Value.GetSafeNormal();
+				DrawDebugLine(World, transforms[i].GetTransform().GetLocation(), transforms[i].GetTransform().GetLocation() + normalizedAcceleration * 100.f, FColor::Yellow, false, -1, 0, 5);
+				DrawDebugLine(World, transforms[i].GetTransform().GetLocation(), transforms[i].GetTransform().GetLocation() + normalizedVelocity * 100.f, FColor::Magenta, false, -1, 0, 5);
 			}
 		});
 }

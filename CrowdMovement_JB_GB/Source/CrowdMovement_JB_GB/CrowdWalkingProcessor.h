@@ -12,6 +12,7 @@ class CROWDMOVEMENT_JB_GB_API UCrowdWalkingProcessor : public UMassProcessor
 {
 	
 	GENERATED_BODY()
+	
 public:
 	UCrowdWalkingProcessor();
 

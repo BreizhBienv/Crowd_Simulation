@@ -41,14 +41,31 @@ void UCrowdAgentTrait::BuildTemplate(FMassEntityTemplateBuildContext& BuildConte
 		BuildContext.AddFragment_GetRef<FCrowdRoleFragment>() = RoleData;
 	}
 	
-	//Sph
-	{
-		BuildContext.AddFragment<FSphFragment>();
-		BuildContext.AddFragment<FSphForcesFragment>();
-		
+	BuildContext.AddFragment<FSphFragment>();
+	BuildContext.AddFragment<FSphForcesFragment>();
+	
+	{		
 		FSharedSphCrowdSettings localSphSettings = SphCrowdSettings;
 		localSphSettings.ObstaclesSegments = World.GetSubsystem<USphObstacleSubSystem>()->GetObstacleSegments();
 		
-		BuildContext.AddConstSharedFragment(FSharedStruct::Make(localSphSettings));
+		BuildContext.AddSharedFragment(FSharedStruct::Make(localSphSettings));
+	}
+	
+	//Sph	
+	if (const FSphSettingsFragment* settings = BuildContext.GetFragment<FSphSettingsFragment>())
+	{	
+		if (settings->randomizeSphValues)
+		{
+			FSphFragment sphData;
+			sphData.h = FMath::RandRange(settings->hRange.X, settings->hRange.Y);
+			sphData.mass = FMath::RandRange(settings->massRange.X, settings->massRange.Y);
+			sphData.comfortDensity = FMath::RandRange(settings->comfortRange.X, settings->comfortRange.Y);
+			sphData.obstacleAreaCoef = FMath::RandRange(settings->coefRange.X, settings->coefRange.Y);
+			BuildContext.AddFragment_GetRef<FSphFragment>() = sphData;
+		}
+	}
+	
+	{	
+		BuildContext.AddSharedFragment(FSharedStruct::Make(LocationToTarget));
 	}
 }

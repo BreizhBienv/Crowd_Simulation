@@ -64,3 +64,10 @@ struct CROWDMOVEMENT_JB_GB_API FTagSph : public FMassTag
 	GENERATED_BODY()
 
 };
+
+USTRUCT()
+struct CROWDMOVEMENT_JB_GB_API FTagSphDebug : public FMassTag
+{
+	GENERATED_BODY()
+
+};

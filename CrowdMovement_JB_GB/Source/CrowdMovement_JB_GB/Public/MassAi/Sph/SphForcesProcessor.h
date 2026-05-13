@@ -20,6 +20,6 @@ protected:
 	virtual void ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager) override;
 	virtual void Execute(FMassEntityManager& Manager, FMassExecutionContext& Context) override;
 	
-private:
+public:
 	USphForcesProcessor();
 };

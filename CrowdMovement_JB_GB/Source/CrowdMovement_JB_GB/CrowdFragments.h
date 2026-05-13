@@ -153,8 +153,7 @@ USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FSharedCrowdSettings : public FMassConstSharedFragment
 {
 	GENERATED_BODY()
-
-
+	
 	UPROPERTY(EditAnywhere, Category = "Perception")
 	float PerceptionRadius = 500.f;
 
@@ -190,15 +189,40 @@ struct CROWDMOVEMENT_JB_GB_API FSharedCrowdSettings : public FMassConstSharedFra
 };
 
 USTRUCT()
+struct FSphSettingsFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
+	bool randomizeSphValues = false;	
+	
+	///The range of detection around the entity
+	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
+	FVector2D hRange = FVector2D(0.5f, 2.f);
+	
+	///The range of the mass of the entity
+	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
+	FVector2D massRange = FVector2D(50.f, 120.f);
+	
+	/// The range of the density in Kg/m^3 the particle is aiming for
+	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
+	FVector2D comfortRange = FVector2D(3.f, 7.f);
+	
+	/// The range of how much the agent is bothered by an obstacle
+	UPROPERTY(EditAnywhere, Category="Crowd|Sph|Settings")
+	FVector2D coefRange = FVector2D(2.f, 4.f);
+};
+
+USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FSharedSphCrowdSettings : public FMassSharedFragment
 {
 	GENERATED_BODY()
 	
 	/// Pressure constant
-	UPROPERTY(EditAnywhere, meta=(ClampMin=0, UIMin=0), Category="SPH")
+	UPROPERTY(EditAnywhere, meta=(ClampMin=0, UIMin=0))
 	float k = 5;
 	
-	UPROPERTY(EditAnywhere, Category="SPH")
+	UPROPERTY(EditAnywhere)
 	float muViscosity = 10.f;
 	
 	TArray<FObstacleSegment> ObstaclesSegments;
@@ -239,6 +263,15 @@ struct CROWDMOVEMENT_JB_GB_API FSphForcesFragment : public FMassFragment
 	
 	UPROPERTY(VisibleAnywhere, Category="SPH")
 	FVector acceleration = FVector::ZeroVector;
+};
+
+USTRUCT()
+struct FSharedLocationFragment : public FMassSharedFragment
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditAnywhere)
+	FVector location = FVector::ZeroVector;
 };
 
 namespace UE::Mass::ProcessorGroupNames

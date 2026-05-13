@@ -3,12 +3,12 @@
 
 #include "MassAi/Sph/SphComponentsProcessor.h"
 
+#include "MassCommonFragments.h"
 #include "MassCommonTypes.h"
 #include "MassExecutionContext.h"
 #include "CrowdMovement_JB_GB/CrowdFragments.h"
 #include "CrowdMovement_JB_GB/CrowdTags.h"
 #include "SphAgent/SphHelper.h"
-#include "SphAgent/SphObstacleHelper.h"
 
 USphComponentsProcessor::USphComponentsProcessor()
 {
@@ -24,6 +24,7 @@ void USphComponentsProcessor::ConfigureQueries(const TSharedRef<FMassEntityManag
 	
 	EntityQuery.Initialize(EntityManager);
 	
+	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FSphFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FSphForcesFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddSharedRequirement<FSharedSphCrowdSettings>(EMassFragmentAccess::ReadOnly);
@@ -35,7 +36,7 @@ void USphComponentsProcessor::ConfigureQueries(const TSharedRef<FMassEntityManag
 
 void USphComponentsProcessor::Execute(FMassEntityManager& Manager, FMassExecutionContext& Context)
 {
-	Super::Execute(Manager, Context);
+	//Super::Execute(Manager, Context);
 	
 	EntityQuery.ForEachEntityChunk(Context,
 		[](FMassExecutionContext& Ctx)
@@ -64,7 +65,7 @@ void USphComponentsProcessor::Execute(FMassEntityManager& Manager, FMassExecutio
 				}
 				
 				//Compute Obstacles density
-				float densityFromObstacles = SphHelper::ComputeDensityFromObstacles(
+				const float densityFromObstacles = SphHelper::ComputeDensityFromObstacles(
 					ri,
 					sphParameters[i].h,
 					sphParameters[i].comfortDensity,

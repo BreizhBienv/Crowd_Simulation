@@ -53,6 +53,9 @@ class CROWDMOVEMENT_JB_GB_API UCrowdAgentTrait : public UMassEntityTraitBase
 	
 	UPROPERTY(EditAnywhere, Category = "Crowd|SphSettings")
 	FSharedSphCrowdSettings SphCrowdSettings;
+	
+	UPROPERTY(EditAnywhere, Category = "Crowd|Debug")
+	FSharedLocationFragment LocationToTarget;
 
 protected:
 	virtual void BuildTemplate(FMassEntityTemplateBuildContext& BuildContext,

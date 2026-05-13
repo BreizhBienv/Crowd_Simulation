@@ -27,6 +27,7 @@ void UCrowdWalkingProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
  
 	EntityQuery.AddConstSharedRequirement<FSharedCrowdSettings>(EMassFragmentPresence::All);
 	EntityQuery.AddTagRequirement<FTagPassiveWalking>(EMassFragmentPresence::All);
+	EntityQuery.AddTagRequirement<FTagSphDebug>(EMassFragmentPresence::None);
  
 	EntityQuery.RegisterWithProcessor(*this);
 }
