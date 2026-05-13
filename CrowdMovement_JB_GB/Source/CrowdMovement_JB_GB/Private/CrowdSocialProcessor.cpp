@@ -38,23 +38,22 @@ void UCrowdSocialProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager
 void UCrowdSocialProcessor::Execute(FMassEntityManager& Manager, FMassExecutionContext& Context)
 {
 	TMap<int32, FVector> LeaderPositions;
+	LeaderPositions.Reserve(256);
 	
 	EntityQuery.ForEachEntityChunk(Context,
-		[&LeaderPositions](FMassExecutionContext& Ctx)
+	[&LeaderPositions](FMassExecutionContext& Ctx)
+	{
+		const int32 N = Ctx.GetNumEntities();
+		const TConstArrayView<FTransformFragment>        Transforms = Ctx.GetFragmentView<FTransformFragment>();
+		const TConstArrayView<FCrowdSocialGroupFragment> Socials    = Ctx.GetFragmentView<FCrowdSocialGroupFragment>();
+ 
+		for (int32 i = 0; i < N; ++i)
 		{
-			const int32 NumEntity = Ctx.GetNumEntities();
-			const TConstArrayView<FTransformFragment> Transforms = Ctx.GetFragmentView<FTransformFragment>();
-			const TConstArrayView<FCrowdSocialGroupFragment> Socials = Ctx.GetFragmentView<FCrowdSocialGroupFragment>();
-			
-			for (int32 i = 0; i < NumEntity; ++i)
-			{
-				const FCrowdSocialGroupFragment& Social = Socials[i];
-				if (Social.GroupID >= 0 && Social.bIsLeader)
-				{
-					LeaderPositions.Add(Social.GroupID, Transforms[i].GetTransform().GetLocation());
-				}
-			}
-		});
+			const FCrowdSocialGroupFragment& S = Socials[i];
+			if (S.GroupID >= 0 && S.bIsLeader)
+				LeaderPositions.Add(S.GroupID, Transforms[i].GetTransform().GetLocation());
+		}
+	});
 	
 	EntityQuery.ForEachEntityChunk(Context,
 		[&LeaderPositions](FMassExecutionContext& Ctx)
@@ -72,10 +71,9 @@ void UCrowdSocialProcessor::Execute(FMassEntityManager& Manager, FMassExecutionC
 			
 			for (int32 i = 0; i < NumEntities; ++i)
 			{
-				FCrowdSocialGroupFragment& Social = Socials[i];
-				FCrowdPhaseFragments& Phase = Phases[i];
-				FMassMoveTargetFragment& MoveTarget = MoveTargets[i];
-				FCrowdPOIFragment POI = POIs[i];
+				FCrowdSocialGroupFragment& Social    = Socials[i];
+				FCrowdPhaseFragments&      Phase     = Phases[i];
+				FMassMoveTargetFragment&   MoveTarget = MoveTargets[i];
 				
 				if (Social.GroupID < 0) continue;
 				
@@ -85,65 +83,20 @@ void UCrowdSocialProcessor::Execute(FMassEntityManager& Manager, FMassExecutionC
 				{
 					const FVector* LeaderPos = LeaderPositions.Find(Social.GroupID);
 					
-					if(LeaderPos)
+					if (!LeaderPos) continue;
+					
+					const float DistToLeader = FVector::Dist2D(CurrLocation, *LeaderPos);
+					
+					if (DistToLeader > Settings.WalkTogetherRadius)
 					{
-						const float DistToLeader = FVector::Dist2D(CurrLocation, *LeaderPos);
-						
-						if (DistToLeader > Settings.WalkTogetherRadius)
-						{
-							const float currSpeed = MoveTarget.DesiredSpeed.Get();
-							MoveTarget.DesiredSpeed = FMassInt16Real(currSpeed * Settings.CatchUpSpeedMultiplier);
-						}
-						if (DistToLeader < Settings.TalkRadius)
-						{
-							
-							Social.TalkDuration = FMath::FRandRange(
-								Settings.TalkDurationMin,
-								Settings.TalkDurationMax);
-							Social.TalkTimer = 0.f;
- 
-							
-							MoveTarget.Center       = CurrLocation;
-							MoveTarget.DesiredSpeed = FMassInt16Real(0.f);
-							MoveTarget.IntentAtGoal = EMassMovementAction::Stand;
- 
-							
-							Phase.PreviousPhase = Phase.CurrentPhase;
-							Phase.CurrentPhase  = ECrowdPhase::Passive_Discution;
-							Phase.PhaseTimer    = 0.f;
- 
-							Ctx.Defer().RemoveTag<FTagPassiveWalking>(Ctx.GetEntity(i));
-							Ctx.Defer().AddTag<FTagPassiveDiscution>(Ctx.GetEntity(i));
-						}
+						const float CurrSpeed = MoveTarget.DesiredSpeed.Get();
+						MoveTarget.DesiredSpeed = FMassInt16Real(CurrSpeed * Settings.CatchUpSpeedMultiplier);
 					}
-				}
-				else
-				{
-					// membre proche déclenche une discussion
-					bool bAnyMemberClose = false;
-					for (int32 j = 0; j < NumEntities; ++j)
+					
+					if (DistToLeader < Settings.TalkRadius)
 					{
-						if (j == i) continue;
-						const FCrowdSocialGroupFragment& OtherSocial = Socials[j];
-						if (OtherSocial.GroupID != Social.GroupID) continue;
- 
-						const float Dist = FVector::Dist2D(
-							CurrLocation,
-							Transforms[j].GetTransform().GetLocation());
- 
-						if (Dist < Settings.TalkRadius)
-						{
-							bAnyMemberClose = true;
-							break;
-						}
-					}
- 
-					if (bAnyMemberClose)
-					{
-						Social.TalkDuration = FMath::FRandRange(
-							Settings.TalkDurationMin,
-							Settings.TalkDurationMax);
-						Social.TalkTimer = 0.f;
+						Social.TalkDuration = FMath::FRandRange(Settings.TalkDurationMin, Settings.TalkDurationMax);
+						Social.TalkTimer    = 0.f;
  
 						MoveTarget.Center       = CurrLocation;
 						MoveTarget.DesiredSpeed = FMassInt16Real(0.f);
@@ -155,6 +108,37 @@ void UCrowdSocialProcessor::Execute(FMassEntityManager& Manager, FMassExecutionC
  
 						Ctx.Defer().RemoveTag<FTagPassiveWalking>(Ctx.GetEntity(i));
 						Ctx.Defer().AddTag<FTagPassiveDiscution>(Ctx.GetEntity(i));
+					}
+				}
+				else
+				{
+					for (int32 j = 0; j < NumEntities; ++j)
+					{
+						if (j == i) continue;
+						const FCrowdSocialGroupFragment& Other = Socials[j];
+						if (Other.GroupID != Social.GroupID || Other.bIsLeader) continue;
+ 
+						const float Dist = FVector::Dist2D(
+							CurrLocation,
+							Transforms[j].GetTransform().GetLocation());
+ 
+						if (Dist < Settings.TalkRadius)
+						{
+							Social.TalkDuration = FMath::FRandRange(Settings.TalkDurationMin, Settings.TalkDurationMax);
+							Social.TalkTimer    = 0.f;
+ 
+							MoveTarget.Center       = CurrLocation;
+							MoveTarget.DesiredSpeed = FMassInt16Real(0.f);
+							MoveTarget.IntentAtGoal = EMassMovementAction::Stand;
+ 
+							Phase.PreviousPhase = Phase.CurrentPhase;
+							Phase.CurrentPhase  = ECrowdPhase::Passive_Discution;
+							Phase.PhaseTimer    = 0.f;
+ 
+							Ctx.Defer().RemoveTag<FTagPassiveWalking>(Ctx.GetEntity(i));
+							Ctx.Defer().AddTag<FTagPassiveDiscution>(Ctx.GetEntity(i));
+							break;
+						}
 					}
 				}
 			}
