@@ -33,6 +33,7 @@ void UCrowdWalkingProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FCrowdRoleFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FCrowdSocialGroupFragment>(EMassFragmentAccess::ReadWrite);
+	EntityQuery.AddRequirement<FSphForcesFragment>(EMassFragmentAccess::ReadOnly);
 
 	EntityQuery.AddConstSharedRequirement<FSharedCrowdSettings>(EMassFragmentPresence::All);
 	EntityQuery.AddTagRequirement<FTagPassiveWalking>(EMassFragmentPresence::All);
@@ -63,6 +64,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 			const TArrayView<FCrowdRoleFragment>        Roles         = Ctx.GetMutableFragmentView<FCrowdRoleFragment>();
 			const TArrayView<FCrowdSocialGroupFragment> SocialGroups  = Ctx.GetMutableFragmentView<FCrowdSocialGroupFragment>();
 			const FSharedCrowdSettings& Settings                      = Ctx.GetConstSharedFragment<FSharedCrowdSettings>();
+			const TConstArrayView<FSphForcesFragment> SphForces        = Ctx.GetFragmentView<FSphForcesFragment>();
 
 			constexpr float WanderRadius   = 1200.f;
 			constexpr float WaypointRadius = 80.f;
@@ -79,10 +81,10 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 
 				const FVector CurrentLocation = Transforms[i].GetTransform().GetLocation();
 
-				
+				// Ignorer les agents non encore placés dans le monde
 				if (CurrentLocation.IsNearlyZero()) continue;
 
-				
+		
 				Role.DutyTimer += DeltaTime;
 				if (Role.DutyTimer >= Role.DutyDuration)
 				{
@@ -96,12 +98,11 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 						SocialGroup.SharedDestination = FVector::ZeroVector;
 				}
 
-				
 				if (POI.TargetPOILocation.IsNearlyZero())
 				{
 					if (!SocialGroup.bIsLeader && SocialGroup.GroupID >= 0)
 					{
-						
+						// attendre la destination du leader
 						if (!SocialGroup.SharedDestination.IsNearlyZero())
 						{
 							POI.TargetPOILocation = SocialGroup.SharedDestination;
@@ -112,7 +113,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					}
 					else
 					{
-						
+						// Solitaire ou leader chercher un POI
 						bool bFoundPOI = false;
 						FCrowdPOIData ChosenPOI;
 
@@ -143,11 +144,11 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 								FMath::Sin(Angle) * Dist,
 								0.f);
 
-							
+							// Verifier que la cible n'est pas nulle
 							if (!WanderTarget.IsNearlyZero())
 								POI.TargetPOILocation = WanderTarget;
 							else
-								continue; 
+								continue; // skip ce tick, reessayer au prochain
 						}
 
 						POI.bHasNavPath       = false;
@@ -158,7 +159,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					}
 				}
 
-				
+	
 				if (!POI.bHasNavPath && !POI.TargetPOILocation.IsNearlyZero() && NavSys)
 				{
 					UNavigationPath* NavPath = NavSys->FindPathToLocationSynchronously(
@@ -183,7 +184,6 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					}
 					else
 					{
-						
 						POI.TargetPOILocation = FVector::ZeroVector;
 						continue;
 					}
@@ -191,7 +191,6 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					POI.bHasNavPath = true;
 				}
 
-				
 				float SpeedMultiplier = 1.0f;
 				switch (Personality.Personality)
 				{
@@ -212,7 +211,6 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 
 				Phase.PhaseTimer += DeltaTime;
 
-				
 				if (Phase.PhaseTimer > WalkTimeoutSec && POI.bHasNavPath)
 				{
 					POI.TargetPOILocation = FVector::ZeroVector;
@@ -224,18 +222,17 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					continue;
 				}
 
-				
 				if (POI.bHasNavPath && POI.CurrentNavPointIndex < POI.NavPathPointCount)
 				{
 					const FVector NextWaypoint = POI.NavPathPoints[POI.CurrentNavPointIndex];
 					const float DistToWaypoint = FVector::Dist2D(CurrentLocation, NextWaypoint);
 
-					
+
 					if (DistToWaypoint < WaypointRadius)
 					{
 						POI.CurrentNavPointIndex++;
 
-						
+
 						if (POI.CurrentNavPointIndex >= POI.NavPathPointCount)
 						{
 							MoveTarget.Center       = CurrentLocation;
@@ -261,16 +258,27 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 						}
 					}
 
-					
-					const FVector WaypointDir = (NextWaypoint - CurrentLocation).GetSafeNormal2D();
-					MoveTarget.Center       = NextWaypoint;
-					MoveTarget.Forward      = WaypointDir;
-					MoveTarget.DesiredSpeed = FMassInt16Real(DesiredSpeed);
-					MoveTarget.IntentAtGoal = EMassMovementAction::Move;
+					const FVector ToWaypoint = (NextWaypoint - CurrentLocation).GetSafeNormal2D();
+					const FVector SphPush    = SphForces[i].acceleration.GetSafeNormal2D();
+
+					// SPH poids reduit (0.3) pour que le chemin NavMesh reste dominant
+					constexpr float SphWeight    = 0.3f;
+					constexpr float LookAhead    = 200.f;
+					const FVector BlendedDir     = (ToWaypoint + SphPush * SphWeight).GetSafeNormal2D();
+					const FVector VirtualTarget  = CurrentLocation + BlendedDir * LookAhead;
+
+					MoveTarget.CreateNewAction(EMassMovementAction::Move, *World);
+					MoveTarget.DesiredSpeed.Set(DesiredSpeed);
+					MoveTarget.IntentAtGoal   = EMassMovementAction::Stand;
+					MoveTarget.SlackRadius    = 80.f;
+					MoveTarget.Center         = VirtualTarget;
+					MoveTarget.Forward        = BlendedDir;
+					// Distance reelle au POI final pour la detection d arrivee
+					MoveTarget.DistanceToGoal = FVector::Dist2D(CurrentLocation, POI.TargetPOILocation);
 				}
 				else if (!POI.TargetPOILocation.IsNearlyZero())
 				{
-					
+					// Chemin pas encore calcule ce tick
 					MoveTarget.DesiredSpeed = FMassInt16Real(0.f);
 					MoveTarget.IntentAtGoal = EMassMovementAction::Stand;
 				}
