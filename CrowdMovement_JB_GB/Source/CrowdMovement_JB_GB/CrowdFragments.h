@@ -87,7 +87,11 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdPOIFragment : public FMassFragment
 	UPROPERTY()
 	TWeakObjectPtr<AActor> TargetPOIActor = nullptr;
 	
-	TArray<FNavPathPoint> NavPathPoints;
+	static constexpr int32 MaxNavPoints = 32;
+	FVector NavPathPoints[MaxNavPoints] = {};
+	
+	UPROPERTY()
+	int32 NavPathPointCount = 0;
 	
 	UPROPERTY()
 	int32 CurrentNavPointIndex = 0;
