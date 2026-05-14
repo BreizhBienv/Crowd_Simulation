@@ -275,6 +275,8 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					MoveTarget.Forward        = BlendedDir;
 					// Distance reelle au POI final pour la detection d arrivee
 					MoveTarget.DistanceToGoal = FVector::Dist2D(CurrentLocation, POI.TargetPOILocation);
+					
+					DrawDebugLine(World, CurrentLocation, VirtualTarget, FColor::Orange, false, -1, 0, 5);
 				}
 				else if (!POI.TargetPOILocation.IsNearlyZero())
 				{
