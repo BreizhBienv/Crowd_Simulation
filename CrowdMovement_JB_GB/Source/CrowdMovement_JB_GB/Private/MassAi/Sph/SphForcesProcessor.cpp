@@ -81,7 +81,7 @@ void USphForcesProcessor::Execute(FMassEntityManager& Manager, FMassExecutionCon
 				}
 				
 				const FVector acceleration = SphHelper::ComputeAcceleration(
-					-fPressureNeighbours + fPressureObstacles, 
+					 -fPressureNeighbours - fPressureObstacles, 
 					settings.muViscosity * fViscosity, 
 					sphForces[i].density);
 				
