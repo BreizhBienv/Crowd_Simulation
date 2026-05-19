@@ -160,6 +160,18 @@ void UCrowdPOISubsystem::DecrementOccupants(AActor* POIActor)
 	}
 }
 
+void UCrowdPOISubsystem::CollectRestPOIs(const FVector& Location, float Radius, TArray<FCrowdPOIData>& OutPOIs) const
+{
+	OutPOIs.Reset();
+	for (const FCrowdPOIData& POI : RegisteredPOIs)
+	{
+		if (POI.Type != EPOIType::Dormitory) continue;
+		if (Radius > 0.f && FVector::Dist2D(Location, POI.Location) > Radius) continue;
+		if (POI.MaxOccupant >= 0 && (POI.CurrOccupant + POI.ReservedOccupant) >= POI.MaxOccupant) continue;
+		OutPOIs.Add(POI);
+	}
+}
+
 bool UCrowdPOISubsystem::TryReserveOccupant(AActor* POIActor)
 {
 	for (FCrowdPOIData& POI : RegisteredPOIs)

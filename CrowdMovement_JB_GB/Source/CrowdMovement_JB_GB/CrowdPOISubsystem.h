@@ -75,6 +75,8 @@ public:
 	void IncrementOccupants(AActor* POIActor);
 	void DecrementOccupants(AActor* POIActor);
 	
+	void CollectRestPOIs(const FVector& Location, float Radius, TArray<FCrowdPOIData>& OutPOIs) const;
+	
 	bool TryReserveOccupant(AActor* POIActor);
 	void ReleaseReservation(AActor* POIActor);
 	void ConfirmReservationAsOccupant(AActor* POIActor);
