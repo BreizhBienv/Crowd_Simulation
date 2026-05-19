@@ -23,7 +23,6 @@ void UCrowdPOISubsystem::RegisterPOI(AActor* Actor, FVector Location,EPOIType ty
 	newPOI.CurrOccupant = 0;
 
 	RegisteredPOIs.Add(newPOI);
-	POIsByType.FindOrAdd(type).Add(newPOI);
 }
 
 void UCrowdPOISubsystem::DeletePOI(AActor * toRemove)
@@ -38,13 +37,7 @@ void UCrowdPOISubsystem::DeletePOI(AActor * toRemove)
 	if (RemovedIdx == INDEX_NONE) 
 		return;
 	
-	EPOIType RemovedType = RegisteredPOIs[RemovedIdx].Type;
 	RegisteredPOIs.RemoveAt(RemovedIdx);
-
-	
-	if (TArray<FCrowdPOIData>* Bucket = POIsByType.Find(RemovedType))
-		Bucket->RemoveAll([toRemove](const FCrowdPOIData& P)
-			{ return P.SourceActor == toRemove; });
 }
 
 void UCrowdPOISubsystem::GetNearPOI(const FVector & location, float raduis, TArray<FCrowdPOIData>& OutPOI) const
@@ -71,8 +64,24 @@ bool UCrowdPOISubsystem::GetRandomNearPOI(const FVector & location, float raduis
 	return PickRandom(Candidates, OutPOI);
 }
 
+void UCrowdPOISubsystem::GetEscapePodsOrderedByDistance(const FVector& Location, TArray<FCrowdPOIData>& OutPods) const
+{
+	OutPods.Reset();
+
+	for (const FCrowdPOIData& POI : RegisteredPOIs)
+	{
+		if (POI.Type == EPOIType::EscapePod)
+			OutPods.Add(POI);
+	}
+	
+	OutPods.Sort([&Location](const FCrowdPOIData& A, const FCrowdPOIData& B)
+	{
+		return FVector::Dist2D(Location, A.Location) < FVector::Dist2D(Location, B.Location);
+	});
+}
+
 bool UCrowdPOISubsystem::GetRandomPOIForRole(const FVector& Location, float Radius, ECrewRole Role,
-	FCrowdPOIData& OutPOI) const
+                                             FCrowdPOIData& OutPOI) const
 {
 	const TArray<EPOIType> ValidTypes = GetPOITypesForRole(Role);
 	
@@ -119,6 +128,16 @@ bool UCrowdPOISubsystem::GetNearestEscapePoint(const FVector& Location, FCrowdPO
 	return bFound;
 }
 
+bool UCrowdPOISubsystem::HasRoomForOccupant(AActor* POIActor) const
+{
+	for (const FCrowdPOIData& POI : RegisteredPOIs)
+	{
+		if (POI.SourceActor == POIActor)
+			return POI.MaxOccupant < 0 || POI.CurrOccupant < POI.MaxOccupant;
+	}
+	return true;
+}
+
 void UCrowdPOISubsystem::IncrementOccupants(AActor* POIActor)
 {
 	for (FCrowdPOIData& POI : RegisteredPOIs)
@@ -136,6 +155,44 @@ void UCrowdPOISubsystem::DecrementOccupants(AActor* POIActor)
 		if (POI.SourceActor == POIActor)
 		{
 			POI.CurrOccupant = FMath::Max(0, POI.CurrOccupant - 1);
+			return;
+		}
+	}
+}
+
+bool UCrowdPOISubsystem::TryReserveOccupant(AActor* POIActor)
+{
+	for (FCrowdPOIData& POI : RegisteredPOIs)
+	{
+		if (POI.SourceActor != POIActor) continue;
+		if (!POI.HasRoom()) return false;
+		POI.ReservedOccupant++;
+		return true;
+	}
+	return false;
+}
+
+void UCrowdPOISubsystem::ReleaseReservation(AActor* POIActor)
+{
+	for (FCrowdPOIData& POI : RegisteredPOIs)
+	{
+		if (POI.SourceActor == POIActor)
+		{
+			POI.ReservedOccupant = FMath::Max(0, POI.ReservedOccupant - 1);
+			return;
+		}
+	}
+}
+
+void UCrowdPOISubsystem::ConfirmReservationAsOccupant(AActor* POIActor)
+{
+	for (FCrowdPOIData& POI : RegisteredPOIs)
+	{
+		if (POI.SourceActor == POIActor)
+		{
+			// La réservation se transforme en occupation réelle
+			POI.ReservedOccupant = FMath::Max(0, POI.ReservedOccupant - 1);
+			POI.CurrOccupant++;
 			return;
 		}
 	}
@@ -181,16 +238,11 @@ bool UCrowdPOISubsystem::PickRandom(const TArray<FCrowdPOIData>& Candidates, FCr
 void UCrowdPOISubsystem::CollectCandidates(const TArray<EPOIType>& Types, const FVector& Location, float Radius,
 	TArray<FCrowdPOIData>& OutCandidates) const
 {
-	for (EPOIType T : Types)
+	for (const FCrowdPOIData& POI : RegisteredPOIs)
 	{
-		const TArray<FCrowdPOIData>* Bucket = POIsByType.Find(T);
-		if (!Bucket) continue;
- 
-		for (const FCrowdPOIData& POI : *Bucket)
-		{
-			if (Radius > 0.f && FVector::Dist2D(Location, POI.Location) > Radius) continue;
-			if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
-			OutCandidates.Add(POI);
-		}
+		if (!Types.Contains(POI.Type)) continue;
+		if (Radius > 0.f && FVector::Dist2D(Location, POI.Location) > Radius) continue;
+		if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
+		OutCandidates.Add(POI);
 	}
 }

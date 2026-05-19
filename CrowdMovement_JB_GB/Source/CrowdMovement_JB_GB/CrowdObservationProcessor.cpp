@@ -1,9 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 
 #include "CrowdObservationProcessor.h"
 #include "CrowdFragments.h"
 #include "CrowdTags.h"
+#include "CrowdPOISubsystem.h"
 #include "MassExecutionContext.h"
 #include "MassCommonTypes.h"
 
@@ -30,8 +29,10 @@ void UCrowdObservationProcessor::ConfigureQueries(const TSharedRef<FMassEntityMa
 
 void UCrowdObservationProcessor::Execute(FMassEntityManager & Manager, FMassExecutionContext & Contexte)
 {
+	UCrowdPOISubsystem* Subsystem = Manager.GetWorld()->GetSubsystem<UCrowdPOISubsystem>();
+
 	EntityQuery.ForEachEntityChunk(Contexte,
-		[](FMassExecutionContext& Ctx)
+		[Subsystem](FMassExecutionContext& Ctx)
 		{
 			const float DeltaTime = Ctx.GetDeltaTimeSeconds();
 			const int32 NumEntities = Ctx.GetNumEntities();
@@ -39,7 +40,6 @@ void UCrowdObservationProcessor::Execute(FMassEntityManager & Manager, FMassExec
 			const TArrayView<FCrowdPOIFragment>         POIs          = Ctx.GetMutableFragmentView<FCrowdPOIFragment>();
 			const TArrayView<FCrowdPhaseFragments>      Phases        = Ctx.GetMutableFragmentView<FCrowdPhaseFragments>();
 			const TArrayView<FCrowdSocialGroupFragment> Socials       = Ctx.GetMutableFragmentView<FCrowdSocialGroupFragment>();
-			
 			
 			for (int32 i = 0; i < NumEntities; ++i)
 			{
@@ -49,22 +49,21 @@ void UCrowdObservationProcessor::Execute(FMassEntityManager & Manager, FMassExec
  
 				POI.ObservationTimer += DeltaTime;
 				Phase.PhaseTimer     += DeltaTime;
-			
 
 				if (POI.ObservationTimer >= POI.ObservationDuration)
 				{
-			
+					// Libérer l'occupation réelle
+					if (POI.TargetPOIActor.IsValid() && Subsystem)
+						Subsystem->DecrementOccupants(POI.TargetPOIActor.Get());
+
 					POI.bIsObserving        = false;
 					POI.ObservationTimer    = 0.f;
-					
 					POI.TargetPOILocation   = FVector::ZeroVector;
 					POI.TargetPOIActor      = nullptr;
+					POI.bHasReservation     = false;
  
-					
 					if (Social.bIsLeader)
-					{
 						Social.SharedDestination = FVector::ZeroVector;
-					}
  
 					Phase.PreviousPhase = Phase.CurrentPhase;
 					Phase.CurrentPhase  = ECrowdPhase::Passive_Walk;

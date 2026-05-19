@@ -35,6 +35,25 @@ enum class ECrewRole : uint8
 	Crew		UMETA(DisplayName = "Equipage"),
 };
 
+USTRUCT()
+struct CROWDMOVEMENT_JB_GB_API FCrowdAnimationFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	
+	//blend Anim
+	UPROPERTY()
+    float CurrentSpeed = 0.f;
+	
+	UPROPERTY()
+	ECrowdPhase AnimPhase = ECrowdPhase::Passive_Walk;
+	
+	UPROPERTY()
+	ECrewRole AnimRole = ECrewRole::Crew;
+	
+	UPROPERTY()
+	FName ActiveAnimState = NAME_None;
+};
+
 
 USTRUCT()
 struct CROWDMOVEMENT_JB_GB_API FCrowdFragments : public FMassFragment
@@ -107,6 +126,9 @@ struct CROWDMOVEMENT_JB_GB_API FCrowdPOIFragment : public FMassFragment
 
 	UPROPERTY()
 	bool bIsObserving = false;
+	
+	UPROPERTY()
+	bool bHasReservation = false;
 };
 
 

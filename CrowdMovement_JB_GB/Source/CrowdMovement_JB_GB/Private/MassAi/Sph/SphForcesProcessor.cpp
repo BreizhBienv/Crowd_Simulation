@@ -13,7 +13,7 @@
 
 USphForcesProcessor::USphForcesProcessor()
 {
-	ProcessingPhase = EMassProcessingPhase::PrePhysics;
+	ProcessingPhase = EMassProcessingPhase::PostPhysics;
 	ExecutionOrder.ExecuteAfter.Add(UE::Mass::ProcessorGroupNames::SphComponents);
 	ExecutionOrder.ExecuteInGroup = UE::Mass::ProcessorGroupNames::SphForces;
     ExecutionOrder.ExecuteBefore.Add(UE::Mass::ProcessorGroupNames::UpdateWorldFromMass); //May be wrong : the goal is to execute before the data from mass is sent to the world
@@ -81,7 +81,7 @@ void USphForcesProcessor::Execute(FMassEntityManager& Manager, FMassExecutionCon
 				}
 				
 				const FVector acceleration = SphHelper::ComputeAcceleration(
-					 -fPressureNeighbours - fPressureObstacles, 
+					 -fPressureNeighbours + fPressureObstacles, 
 					settings.muViscosity * fViscosity, 
 					sphForces[i].density);
 				

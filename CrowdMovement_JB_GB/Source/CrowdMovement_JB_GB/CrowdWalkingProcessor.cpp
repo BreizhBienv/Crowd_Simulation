@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "CrowdWalkingProcessor.h"
 
 #include "CrowdFragments.h"
@@ -90,6 +88,14 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 				{
 					Role.bOnDuty          = !Role.bOnDuty;
 					Role.DutyTimer        = 0.f;
+
+					// Libérer la réservation si l'agent abandonne son POI en route
+					if (POI.bHasReservation && POI.TargetPOIActor.IsValid() && Subsystem)
+					{
+						Subsystem->ReleaseReservation(POI.TargetPOIActor.Get());
+						POI.bHasReservation = false;
+					}
+
 					POI.TargetPOILocation = FVector::ZeroVector;
 					POI.TargetPOIActor    = nullptr;
 					POI.bHasNavPath       = false;
@@ -123,6 +129,23 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 								bFoundPOI = Subsystem->GetRandomPOIForRole(CurrentLocation, WanderRadius, Role.Role, ChosenPOI);
 							else
 								bFoundPOI = Subsystem->GetRandomSocialPOI(CurrentLocation, WanderRadius, ChosenPOI);
+						}
+
+						if (bFoundPOI)
+						{
+							// Réserver immédiatement la place pour éviter la surcharge
+							if (ChosenPOI.SourceActor.IsValid() && Subsystem)
+							{
+								if (!Subsystem->TryReserveOccupant(ChosenPOI.SourceActor.Get()))
+								{
+									// Plus de place entre le moment de la recherche et maintenant
+									bFoundPOI = false;
+								}
+								else
+								{
+									POI.bHasReservation = true;
+								}
+							}
 						}
 
 						if (bFoundPOI)
@@ -213,6 +236,11 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 
 				if (Phase.PhaseTimer > WalkTimeoutSec && POI.bHasNavPath)
 				{
+					if (POI.bHasReservation && POI.TargetPOIActor.IsValid() && Subsystem)
+					{
+						Subsystem->ReleaseReservation(POI.TargetPOIActor.Get());
+						POI.bHasReservation = false;
+					}
 					POI.TargetPOILocation = FVector::ZeroVector;
 					POI.bHasNavPath       = false;
 					POI.NavPathPointCount = 0;
@@ -235,6 +263,17 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 
 						if (POI.CurrentNavPointIndex >= POI.NavPathPointCount)
 						{
+							
+							if (POI.TargetPOIActor.IsValid() && Subsystem)
+							{
+								if (POI.bHasReservation)
+									Subsystem->ConfirmReservationAsOccupant(POI.TargetPOIActor.Get());
+								else
+									
+									Subsystem->ConfirmReservationAsOccupant(POI.TargetPOIActor.Get());
+								POI.bHasReservation = false;
+							}
+
 							MoveTarget.Center       = CurrentLocation;
 							MoveTarget.DesiredSpeed = FMassInt16Real(0.f);
 							MoveTarget.IntentAtGoal = EMassMovementAction::Stand;
@@ -262,7 +301,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					const FVector SphPush    = SphForces[i].acceleration.GetSafeNormal2D();
 
 					// SPH poids reduit (0.3) pour que le chemin NavMesh reste dominant
-					constexpr float SphWeight    = 0.3f;
+					constexpr float SphWeight    = 0.5f;
 					constexpr float LookAhead    = 200.f;
 					const FVector BlendedDir     = (ToWaypoint + SphPush * SphWeight).GetSafeNormal2D();
 					const FVector VirtualTarget  = CurrentLocation + BlendedDir * LookAhead;

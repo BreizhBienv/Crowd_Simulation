@@ -19,7 +19,9 @@ public class CrowdMovement_JB_GB : ModuleRules
 			"MassEntity",
 			"MassCommon",
 			"MassSpawner",
+			"MassRepresentation",
             "MassAIBehavior",
+            "MassLOD",
 			
 			//MassGameplay
 			"MassGameplayDebug",

@@ -33,6 +33,14 @@ struct FCrowdPOIData
 
 	UPROPERTY()
 	TWeakObjectPtr<AActor> SourceActor = nullptr;
+	
+	UPROPERTY()
+	int32 ReservedOccupant = 0;
+	
+	bool HasRoom() const
+	{
+		return MaxOccupant < 0 || (CurrOccupant + ReservedOccupant) < MaxOccupant;
+	}
 
 };
 
@@ -53,6 +61,8 @@ public:
 	bool GetRandomNearPOI(const FVector& location, float raduis, FCrowdPOIData& OutPOI)const;
 	
 	// Specifique POI Get
+	
+	void GetEscapePodsOrderedByDistance(const FVector& Location, TArray<FCrowdPOIData>& OutPods) const;
 
 	bool GetRandomPOIForRole(const FVector& Location, float Radius, ECrewRole Role, FCrowdPOIData& OutPOI) const;
  
@@ -60,8 +70,15 @@ public:
 	
 	bool GetNearestEscapePoint(const FVector& Location, FCrowdPOIData& OutPOI) const;
 	
+	bool HasRoomForOccupant(AActor* POIActor) const;
+	
 	void IncrementOccupants(AActor* POIActor);
 	void DecrementOccupants(AActor* POIActor);
+	
+	bool TryReserveOccupant(AActor* POIActor);
+	void ReleaseReservation(AActor* POIActor);
+	void ConfirmReservationAsOccupant(AActor* POIActor);
+	
 private:
 	TMap<EPOIType, TArray<FCrowdPOIData>> POIsByType;
 	
