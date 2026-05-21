@@ -87,10 +87,6 @@ bool UCrowdPOISubsystem::GetRandomPOIForRole(const FVector& Location, float Radi
 	
 	TArray<FCrowdPOIData> Candidates;
 	CollectCandidates(ValidTypes, Location, Radius, Candidates);
-	
-	if (Candidates.IsEmpty())
-		CollectCandidates(ValidTypes, Location, -1.f, Candidates);
-	
 	return PickRandom(Candidates, OutPOI);
 }
 
@@ -99,11 +95,7 @@ bool UCrowdPOISubsystem::GetRandomSocialPOI(const FVector& Location, float Radiu
 	const TArray<EPOIType> SocialTypes = GetSocialPOITypes();
  
 	TArray<FCrowdPOIData> Candidates;
-	CollectCandidates(SocialTypes, Location, Radius, Candidates);
- 
-	if (Candidates.IsEmpty())
-		CollectCandidates(SocialTypes, Location, -1.f, Candidates);
- 
+	CollectCandidates(SocialTypes, Location, Radius, Candidates); 
 	return PickRandom(Candidates, OutPOI);
 }
 
@@ -253,7 +245,7 @@ void UCrowdPOISubsystem::CollectCandidates(const TArray<EPOIType>& Types, const 
 	for (const FCrowdPOIData& POI : RegisteredPOIs)
 	{
 		if (!Types.Contains(POI.Type)) continue;
-		if (Radius > 0.f && FVector::Dist2D(Location, POI.Location) > Radius) continue;
+		//if (Radius > 0.f && FVector::Dist2D(Location, POI.Location) > Radius) continue;
 		if (POI.MaxOccupant >= 0 && POI.CurrOccupant >= POI.MaxOccupant) continue;
 		OutCandidates.Add(POI);
 	}
