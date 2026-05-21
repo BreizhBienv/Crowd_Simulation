@@ -23,6 +23,7 @@ void UCrowdFleeingProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 	
 	EntityQuery.AddRequirement<FCrowdFragments>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
+	EntityQuery.AddRequirement<FSphForcesFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FCrowdPhaseFragments>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FMassMoveTargetFragment>(EMassFragmentAccess::ReadWrite);
@@ -49,6 +50,7 @@ void UCrowdFleeingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
  
 			const TConstArrayView<FCrowdFragments>    Personalities = Ctx.GetFragmentView<FCrowdFragments>();
 			const TConstArrayView<FTransformFragment> Transforms    = Ctx.GetFragmentView<FTransformFragment>();
+			const TConstArrayView<FSphForcesFragment> SphForces		= Ctx.GetFragmentView<FSphForcesFragment>();
 			const TArrayView<FCrowdPhaseFragments>    Phases        = Ctx.GetMutableFragmentView<FCrowdPhaseFragments>();
 			const TArrayView<FCrowdPOIFragment>       POIs          = Ctx.GetMutableFragmentView<FCrowdPOIFragment>();
 			const TArrayView<FMassMoveTargetFragment> MoveTargets   = Ctx.GetMutableFragmentView<FMassMoveTargetFragment>();
@@ -209,17 +211,23 @@ void UCrowdFleeingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 						}
 					}
 
-					// Avancer vers le prochain waypoint
 					const FVector ToWaypoint = (NextWaypoint - CurrentLocation).GetSafeNormal2D();
-					const FVector VirtualTarget = CurrentLocation + ToWaypoint * 200.f;
-
+					const FVector SphPush    = SphForces[i].acceleration.GetSafeNormal2D();
+					
+					constexpr float SphWeight    = 0.65f;
+					constexpr float LookAhead    = 200.f;
+					const FVector BlendedDir     = (ToWaypoint + SphPush * SphWeight).GetSafeNormal2D();
+					const FVector VirtualTarget  = CurrentLocation + BlendedDir * LookAhead;
+					
 					MoveTarget.CreateNewAction(EMassMovementAction::Move, *World);
-					MoveTarget.Center       = VirtualTarget;
-					MoveTarget.Forward      = ToWaypoint;
-					MoveTarget.DesiredSpeed = FMassInt16Real(DesiredSpeed);
-					MoveTarget.IntentAtGoal = EMassMovementAction::Move;
-					MoveTarget.SlackRadius  = 80.f;
+					MoveTarget.Center         = VirtualTarget;
+					MoveTarget.Forward        = BlendedDir;
+					MoveTarget.DesiredSpeed.Set(DesiredSpeed);
+					MoveTarget.IntentAtGoal   = EMassMovementAction::Stand;
+					MoveTarget.SlackRadius    = 80.f;
 					MoveTarget.DistanceToGoal = FVector::Dist2D(CurrentLocation, POI.TargetPOILocation);
+					
+					DrawDebugLine(World, CurrentLocation, VirtualTarget, FColor::Orange, false, -1, 0, 5);
 				}
 			}
 		});

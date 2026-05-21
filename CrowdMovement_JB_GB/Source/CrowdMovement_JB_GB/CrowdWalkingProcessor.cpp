@@ -62,7 +62,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 			const TArrayView<FCrowdRoleFragment>        Roles         = Ctx.GetMutableFragmentView<FCrowdRoleFragment>();
 			const TArrayView<FCrowdSocialGroupFragment> SocialGroups  = Ctx.GetMutableFragmentView<FCrowdSocialGroupFragment>();
 			const FSharedCrowdSettings& Settings                      = Ctx.GetConstSharedFragment<FSharedCrowdSettings>();
-			const TConstArrayView<FSphForcesFragment> SphForces        = Ctx.GetFragmentView<FSphForcesFragment>();
+			const TConstArrayView<FSphForcesFragment> SphForces       = Ctx.GetFragmentView<FSphForcesFragment>();
 
 			constexpr float WanderRadius   = 1200.f;
 			constexpr float WaypointRadius = 80.f;
@@ -300,8 +300,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					const FVector ToWaypoint = (NextWaypoint - CurrentLocation).GetSafeNormal2D();
 					const FVector SphPush    = SphForces[i].acceleration.GetSafeNormal2D();
 
-					// SPH poids reduit (0.3) pour que le chemin NavMesh reste dominant
-					constexpr float SphWeight    = 0.5f;
+					constexpr float SphWeight    = 0.65f;
 					constexpr float LookAhead    = 200.f;
 					const FVector BlendedDir     = (ToWaypoint + SphPush * SphWeight).GetSafeNormal2D();
 					const FVector VirtualTarget  = CurrentLocation + BlendedDir * LookAhead;
@@ -312,7 +311,6 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					MoveTarget.SlackRadius    = 80.f;
 					MoveTarget.Center         = VirtualTarget;
 					MoveTarget.Forward        = BlendedDir;
-					// Distance reelle au POI final pour la detection d arrivee
 					MoveTarget.DistanceToGoal = FVector::Dist2D(CurrentLocation, POI.TargetPOILocation);
 					
 					DrawDebugLine(World, CurrentLocation, VirtualTarget, FColor::Orange, false, -1, 0, 5);
