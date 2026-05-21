@@ -376,8 +376,8 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					const FVector ToWaypoint = (NextWaypoint - CurrentLocation).GetSafeNormal2D();
 					const FVector SphPush    = SphForces[i].acceleration.GetSafeNormal2D();
 
-					// SPH poids reduit (0.5) pour que le chemin NavMesh reste dominant
-					constexpr float SphWeight    = 0.5f;
+					// SPH poids reduit (0.3) pour que le chemin NavMesh reste dominant
+					constexpr float SphWeight    = 0.3f;
 					constexpr float LookAhead    = 200.f;
 					const FVector BlendedDir     = (ToWaypoint + SphPush * SphWeight).GetSafeNormal2D();
 					const FVector VirtualTarget  = CurrentLocation + BlendedDir * LookAhead;

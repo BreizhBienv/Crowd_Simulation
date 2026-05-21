@@ -85,6 +85,7 @@ void USphForcesProcessor::Execute(FMassEntityManager& Manager, FMassExecutionCon
 					settings.muViscosity * fViscosity, 
 					sphForces[i].density);
 				
+				//VelocityFragments[i].Value += acceleration;
 				sphForces[i].acceleration = acceleration;
 				
 				//Debug
