@@ -38,14 +38,6 @@ void UCrowdWalkingProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 	EntityQuery.AddTagRequirement<FTagSphDebug>(EMassFragmentPresence::None);
 
 	EntityQuery.RegisterWithProcessor(*this);
- 
-
-	OnDutyAgentsQuery.Initialize(EntityManager);
-	OnDutyAgentsQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly);
-	OnDutyAgentsQuery.AddRequirement<FCrowdRoleFragment>(EMassFragmentAccess::ReadOnly);
-	OnDutyAgentsQuery.AddRequirement<FCrowdPOIFragment>(EMassFragmentAccess::ReadOnly);
-	OnDutyAgentsQuery.AddTagRequirement<FTagPassiveWalking>(EMassFragmentPresence::All);
-	OnDutyAgentsQuery.RegisterWithProcessor(*this);
 }
 
 void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecutionContext& Context)
@@ -56,34 +48,8 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 	UNavigationSystemV1* NavSys    = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
 	UCrowdPOISubsystem*  Subsystem = World->GetSubsystem<UCrowdPOISubsystem>();
 
-
-	struct FOnDutyAgentInfo
-	{
-		FVector Location;
-		FVector Destination;
-	};
-	TArray<FOnDutyAgentInfo> OnDutyAgents;
-	OnDutyAgents.Reserve(256);
-
-	OnDutyAgentsQuery.ForEachEntityChunk(Context,
-		[&OnDutyAgents](FMassExecutionContext& Ctx)
-		{
-			const TConstArrayView<FTransformFragment> Transforms = Ctx.GetFragmentView<FTransformFragment>();
-			const TConstArrayView<FCrowdRoleFragment> Roles      = Ctx.GetFragmentView<FCrowdRoleFragment>();
-			const TConstArrayView<FCrowdPOIFragment>  POIs       = Ctx.GetFragmentView<FCrowdPOIFragment>();
-			const int32 N = Ctx.GetNumEntities();
-
-			for (int32 i = 0; i < N; ++i)
-			{
-				if (!Roles[i].bOnDuty) continue;
-				if (POIs[i].TargetPOILocation.IsNearlyZero()) continue;
-				OnDutyAgents.Add({ Transforms[i].GetTransform().GetLocation(), POIs[i].TargetPOILocation });
-			}
-		});
-	
-
 	EntityQuery.ForEachEntityChunk(Context,
-		[World, NavSys, Subsystem, &OnDutyAgents](FMassExecutionContext& Ctx)
+		[World, NavSys, Subsystem](FMassExecutionContext& Ctx)
 		{
 			const float DeltaTime   = Ctx.GetDeltaTimeSeconds();
 			const int32 NumEntities = Ctx.GetNumEntities();
@@ -120,8 +86,8 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 				Role.DutyTimer += DeltaTime;
 				if (Role.DutyTimer >= Role.DutyDuration)
 				{
-					Role.bOnDuty   = !Role.bOnDuty;
-					Role.DutyTimer = 0.f;
+					Role.bOnDuty          = !Role.bOnDuty;
+					Role.DutyTimer        = 0.f;
 
 					// Libérer la réservation si l'agent abandonne son POI en route
 					if (POI.bHasReservation && POI.TargetPOIActor.IsValid() && Subsystem)
@@ -167,13 +133,18 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 
 						if (bFoundPOI)
 						{
-							// Réserver immédiatement la place
+							// Réserver immédiatement la place pour éviter la surcharge
 							if (ChosenPOI.SourceActor.IsValid() && Subsystem)
 							{
 								if (!Subsystem->TryReserveOccupant(ChosenPOI.SourceActor.Get()))
-									bFoundPOI = false; 
+								{
+									// Plus de place entre le moment de la recherche et maintenant
+									bFoundPOI = false;
+								}
 								else
+								{
 									POI.bHasReservation = true;
+								}
 							}
 						}
 
@@ -188,76 +159,26 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 						}
 						else
 						{
+							
+							const float Angle = FMath::FRandRange(0.f, 2.f * PI);
+							const float Dist  = FMath::FRandRange(300.f, WanderRadius * 0.5f);
+							const FVector WanderTarget = CurrentLocation + FVector(
+								FMath::Cos(Angle) * Dist,
+								FMath::Sin(Angle) * Dist,
+								0.f);
 
-							FVector FriendDestination = FVector::ZeroVector;
-							float BestFriendDist = 2000.f; 
-
-							for (const auto& Agent : OnDutyAgents)
-							{
-								const float Dist = FVector::Dist2D(CurrentLocation, Agent.Location);
-								if (Dist < BestFriendDist)
-								{
-									BestFriendDist     = Dist;
-									FriendDestination  = Agent.Destination;
-								}
-							}
-
-							if (!FriendDestination.IsNearlyZero())
-							{
-		
-								POI.TargetPOILocation = FriendDestination;
-								POI.TargetPOIActor    = nullptr;
-								POI.bHasReservation   = false;
-							}
+							// Verifier que la cible n'est pas nulle
+							if (!WanderTarget.IsNearlyZero())
+								POI.TargetPOILocation = WanderTarget;
 							else
-							{
-								
-								FCrowdPOIData RestPOI;
-								bool bFoundRest = false;
-								if (Subsystem)
-								{
-									TArray<FCrowdPOIData> RestCandidates;
-									Subsystem->CollectRestPOIs(CurrentLocation, WanderRadius, RestCandidates);
-									if (RestCandidates.Num() > 0)
-									{
-										RestPOI   = RestCandidates[FMath::RandRange(0, RestCandidates.Num() - 1)];
-										bFoundRest = true;
-									}
-								}
-
-								if (bFoundRest && Subsystem && Subsystem->TryReserveOccupant(RestPOI.SourceActor.Get()))
-								{
-									POI.TargetPOILocation   = RestPOI.Location;
-									POI.TargetPOIActor      = RestPOI.SourceActor.Get();
-									POI.ObservationDuration = FMath::Lerp(
-										RestPOI.ObservationDuration * 0.5f,
-										RestPOI.ObservationDuration * 1.5f,
-										Personality.CuriosityScore);
-									POI.bHasReservation = true;
-								}
-								else
-								{
-									// 3. Wander aléatoire en dernier recours
-									const float Angle = FMath::FRandRange(0.f, 2.f * PI);
-									const float Dist  = FMath::FRandRange(300.f, WanderRadius * 0.5f);
-									const FVector WanderTarget = CurrentLocation + FVector(
-										FMath::Cos(Angle) * Dist,
-										FMath::Sin(Angle) * Dist,
-										0.f);
-
-									if (!WanderTarget.IsNearlyZero())
-										POI.TargetPOILocation = WanderTarget;
-									else
-										continue;
-								}
-							}
+								continue; // skip ce tick, reessayer au prochain
+						}
 
 						POI.bHasNavPath       = false;
 						POI.NavPathPointCount = 0;
-						
+
 						if (SocialGroup.bIsLeader)
 							SocialGroup.SharedDestination = POI.TargetPOILocation;
-						}
 					}
 				}
 
@@ -342,10 +263,13 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 
 						if (POI.CurrentNavPointIndex >= POI.NavPathPointCount)
 						{
-	
+							
 							if (POI.TargetPOIActor.IsValid() && Subsystem)
 							{
 								if (POI.bHasReservation)
+									Subsystem->ConfirmReservationAsOccupant(POI.TargetPOIActor.Get());
+								else
+									
 									Subsystem->ConfirmReservationAsOccupant(POI.TargetPOIActor.Get());
 								POI.bHasReservation = false;
 							}
@@ -377,7 +301,7 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					const FVector SphPush    = SphForces[i].acceleration.GetSafeNormal2D();
 
 					// SPH poids reduit (0.3) pour que le chemin NavMesh reste dominant
-					constexpr float SphWeight    = 0.3f;
+					constexpr float SphWeight    = 0.5f;
 					constexpr float LookAhead    = 200.f;
 					const FVector BlendedDir     = (ToWaypoint + SphPush * SphWeight).GetSafeNormal2D();
 					const FVector VirtualTarget  = CurrentLocation + BlendedDir * LookAhead;
@@ -400,7 +324,5 @@ void UCrowdWalkingProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 					MoveTarget.IntentAtGoal = EMassMovementAction::Stand;
 				}
 			}
-			
 		});
 }
- 

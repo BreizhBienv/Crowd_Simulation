@@ -10,6 +10,7 @@
 UCLASS()
 class CROWDMOVEMENT_JB_GB_API UCrowdWalkingProcessor : public UMassProcessor
 {
+	
 	GENERATED_BODY()
 	
 public:
@@ -21,6 +22,4 @@ protected:
 
 private:
 	FMassEntityQuery EntityQuery;
-	
-	FMassEntityQuery OnDutyAgentsQuery;
 };

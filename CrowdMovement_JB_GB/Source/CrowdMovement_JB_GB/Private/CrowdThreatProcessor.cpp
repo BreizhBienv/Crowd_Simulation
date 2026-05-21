@@ -8,9 +8,11 @@
 #include "CrowdMovement_JB_GB/CrowdFragments.h"
 #include "CrowdMovement_JB_GB/CrowdTags.h"
 #include "CrowdThreatSubsystem.h"
+#include "CrowdThreatActor.h"
 #include "MassNavigationFragments.h"
 #include "MassCommonFragments.h"
 #include "MassEntityManager.h"
+#include "EngineUtils.h"
 
 UCrowdThreatProcessor::UCrowdThreatProcessor()
 {
