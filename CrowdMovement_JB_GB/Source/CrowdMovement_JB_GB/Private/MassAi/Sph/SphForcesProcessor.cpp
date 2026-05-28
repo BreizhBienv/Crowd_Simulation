@@ -89,10 +89,15 @@ void USphForcesProcessor::Execute(FMassEntityManager& Manager, FMassExecutionCon
 				sphForces[i].acceleration = acceleration;
 				
 				//Debug
-				const FVector normalizedAcceleration = acceleration.GetSafeNormal();
-				const FVector normalizedVelocity = VelocityFragments[i].Value.GetSafeNormal();
-				DrawDebugLine(World, transforms[i].GetTransform().GetLocation(), transforms[i].GetTransform().GetLocation() + normalizedAcceleration * 100.f, FColor::Yellow, false, -1, 0, 5);
-				DrawDebugLine(World, transforms[i].GetTransform().GetLocation(), transforms[i].GetTransform().GetLocation() + normalizedVelocity * 100.f, FColor::Magenta, false, -1, 0, 5);
+				const FVector startDebug = transforms[i].GetTransform().GetLocation();
+				const FVector nAcceleration = acceleration.GetSafeNormal();
+				const FVector2D normalizedPressureN = (-fPressureNeighbours).GetSafeNormal();
+				const FVector nPresssureNDir = FVector(normalizedPressureN.X, normalizedPressureN.Y, 0) * 100.f;
+				const FVector2D normalizedPressureO = (fPressureObstacles).GetSafeNormal();
+				const FVector nPresssureODir = FVector(normalizedPressureO.X, normalizedPressureO.Y, 0) * 100.f;
+				DrawDebugLine(World, startDebug, startDebug + nPresssureNDir, FColor::Magenta, false, -1, 0, 5);
+				DrawDebugLine(World, startDebug, startDebug + nPresssureODir, FColor::Purple, false, -1, 0, 5);
+				DrawDebugLine(World, startDebug, startDebug + nAcceleration * 100.f, FColor::Yellow, false, -1, 0, 5);
 			}
 		});
 }

@@ -80,7 +80,7 @@ void UGoToLocationProcessor::Execute(FMassEntityManager& Manager, FMassExecution
 				
 				// Write a virtual target slightly ahead in the blended direction
 				// instead of the raw target — this lets Mass navigation steer smoothly
-				constexpr float LookAheadDist = 200.f;
+				constexpr float LookAheadDist = 100.f;
 				const FVector VirtualTarget = AgentLoc + BlendedDir * LookAheadDist;
 
 				MoveTarget.CreateNewAction(EMassMovementAction::Move, *World);
